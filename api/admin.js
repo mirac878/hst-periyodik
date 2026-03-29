@@ -6,7 +6,7 @@ const supabase = createClient(
 );
 
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
-const ALLOWED_TABLES = ['blogs', 'client_references', 'services', 'contact_info', 'hero_slides', 'faq_items', 'about_content', 'site_stats'];
+const ALLOWED_TABLES = ['blogs', 'client_references', 'services', 'contact_info', 'hero_slides', 'faq_items', 'about_content', 'site_stats', 'city_pages'];
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
