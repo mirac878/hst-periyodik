@@ -1,296 +1,607 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useEffect, useMemo, useState } from "react";
 
-const API_URL = '/api/admin';
-const C = { navy:"#0F2B4C", orange:"#C75B12" };
-
-async function adminFetch(body) {
-  const pw = sessionStorage.getItem('hst_admin_pw');
-  const res = await fetch(API_URL, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({...body, password:pw}) });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || 'Hata');
-  return data;
-}
-
-async function uploadImage(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = async () => {
-      try {
-        const base64 = reader.result.split(',')[1];
-        const res = await adminFetch({ action:'upload_image', fileName:file.name, fileData:base64, contentType:file.type });
-        resolve(res.url);
-      } catch (e) { reject(e); }
-    };
-    reader.readAsDataURL(file);
-  });
-}
-
-/* ── Styles ── */
-const S = {
-  container:{maxWidth:1000,margin:'0 auto',padding:'40px 20px',fontFamily:"'Source Sans 3',system-ui,sans-serif",minHeight:'100vh',background:'#f8f7f4'},
-  header:{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:32,paddingBottom:16,borderBottom:`2px solid ${C.navy}`},
-  title:{fontSize:28,fontWeight:700,color:C.navy,margin:0,fontFamily:"'Cormorant Garamond',serif"},
-  tabs:{display:'flex',gap:0,marginBottom:32,borderBottom:'1px solid #ddd',flexWrap:'wrap'},
-  tab:a=>({padding:'12px 18px',cursor:'pointer',border:'none',borderBottom:a?`3px solid ${C.navy}`:'3px solid transparent',background:'none',color:a?C.navy:'#888',fontWeight:a?600:400,fontSize:14,transition:'all .2s'}),
-  card:{background:'#fff',borderRadius:8,padding:20,marginBottom:12,border:'1px solid #eee',boxShadow:'0 1px 3px rgba(0,0,0,.04)'},
-  input:{width:'100%',padding:'10px 14px',border:'1px solid #ddd',borderRadius:6,fontSize:14,fontFamily:'inherit',boxSizing:'border-box',marginBottom:10},
-  textarea:{width:'100%',padding:'10px 14px',border:'1px solid #ddd',borderRadius:6,fontSize:14,fontFamily:'inherit',boxSizing:'border-box',marginBottom:10,minHeight:100,resize:'vertical'},
-  label:{display:'block',marginBottom:3,fontSize:12,fontWeight:600,color:'#555'},
-  row:{display:'flex',justifyContent:'space-between',alignItems:'center',gap:8},
-  btnP:{background:C.navy,color:'#fff',border:'none',padding:'9px 20px',borderRadius:6,cursor:'pointer',fontSize:13,fontWeight:500},
-  btnD:{background:'#dc3545',color:'#fff',border:'none',padding:'7px 14px',borderRadius:6,cursor:'pointer',fontSize:12},
-  btnS:{background:'none',border:'1px solid #ddd',color:'#555',padding:'9px 20px',borderRadius:6,cursor:'pointer',fontSize:13},
-  btnO:{background:C.orange,color:'#fff',border:'none',padding:'9px 20px',borderRadius:6,cursor:'pointer',fontSize:13,fontWeight:500},
-  badge:a=>({display:'inline-block',padding:'2px 10px',borderRadius:20,fontSize:11,fontWeight:600,background:a?'#d4edda':'#fff3cd',color:a?'#155724':'#856404'}),
-  msg:t=>({padding:'10px 14px',borderRadius:6,marginBottom:12,background:t==='error'?'#f8d7da':'#d4edda',color:t==='error'?'#721c24':'#155724',fontSize:13}),
+const C = {
+  navy: "#0F2B4C",
+  orange: "#C75B12",
+  cream: "#faf9f6",
+  gray: "#6b7280",
+  border: "#e5e2dc",
 };
 
-/* ── ImageField Component ── */
-function ImageField({label, value, onChange}) {
+const API_URL = "/api/admin";
+
+const TAB_ORDER = [
+  "hero_slides",
+  "blogs",
+  "services",
+  "client_references",
+  "faq_items",
+  "site_stats",
+  "about_content",
+  "contact_info",
+  "city_pages",
+];
+
+const TAB_LABELS = {
+  hero_slides: "Hero Slider",
+  blogs: "Blog",
+  services: "Hizmetler",
+  client_references: "Referanslar",
+  faq_items: "SSS",
+  site_stats: "İstatistikler",
+  about_content: "Hakkımızda",
+  contact_info: "İletişim",
+  city_pages: "İl SEO",
+};
+
+const EMPTY_FORMS = {
+  hero_slides: { title: "", subtitle: "", image_url: "", button_text: "", button_link: "", order_index: 0, is_active: true },
+  blogs: { title: "", slug: "", excerpt: "", cover_image: "", content: "", author: "HST Periyodik", published: true },
+  services: { title: "", description: "", icon: "", category: "", price_info: "", order_index: 0, is_active: true },
+  client_references: { company_name: "", description: "", service_type: "", location: "", image_url: "", order_index: 0, is_active: true },
+  faq_items: { question: "", answer: "", order_index: 0, is_active: true },
+  site_stats: { label: "", value: "", order_index: 0, is_active: true },
+  city_pages: {
+    city_name: "",
+    slug: "",
+    meta_title: "",
+    meta_description: "",
+    hero_title: "",
+    hero_subtitle: "",
+    content: "",
+    services_intro: "",
+    cta_text: "Hemen Teklif Alın",
+    image_url: "",
+    order_index: 0,
+    is_active: true,
+  },
+};
+
+function slugify(text) {
+  return (text || "")
+    .toString()
+    .toLowerCase("tr-TR")
+    .replace(/ı/g, "i")
+    .replace(/ğ/g, "g")
+    .replace(/ü/g, "u")
+    .replace(/ş/g, "s")
+    .replace(/ö/g, "o")
+    .replace(/ç/g, "c")
+    .replace(/[^a-z0-9\s-]/g, "")
+    .trim()
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-");
+}
+
+async function adminPost(password, body) {
+  const res = await fetch(API_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ...body, password }),
+  });
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.error || "İşlem başarısız");
+  return json;
+}
+
+async function fileToBase64(file) {
+  const buffer = await file.arrayBuffer();
+  let binary = "";
+  const bytes = new Uint8Array(buffer);
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode(...bytes.slice(i, i + chunk));
+  }
+  return btoa(binary);
+}
+
+function Field({ label, children, hint }) {
+  return (
+    <div style={{ marginBottom: 14 }}>
+      <div style={{ fontSize: 13, fontWeight: 700, color: C.navy, marginBottom: 6 }}>{label}</div>
+      {children}
+      {hint ? <div style={{ fontSize: 12, color: C.gray, marginTop: 4 }}>{hint}</div> : null}
+    </div>
+  );
+}
+
+function TextInput(props) {
+  return <input {...props} style={{ width: "100%", padding: "12px 14px", border: `1px solid ${C.border}`, borderRadius: 8, fontSize: 14, outline: "none", ...props.style }} />;
+}
+
+function TextArea(props) {
+  return <textarea {...props} style={{ width: "100%", padding: "12px 14px", border: `1px solid ${C.border}`, borderRadius: 8, fontSize: 14, outline: "none", resize: "vertical", ...props.style }} />;
+}
+
+function CheckBox({ checked, onChange, label }) {
+  return (
+    <label style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 14, color: C.navy, cursor: "pointer" }}>
+      <input type="checkbox" checked={checked} onChange={onChange} />
+      {label}
+    </label>
+  );
+}
+
+function UploadField({ value, onChange, password, onUploaded }) {
   const [uploading, setUploading] = useState(false);
-  const handleFile = async (e) => {
-    const file = e.target.files[0];
+
+  async function handleFile(e) {
+    const file = e.target.files?.[0];
     if (!file) return;
     setUploading(true);
     try {
-      const url = await uploadImage(file);
-      onChange(url);
-    } catch (err) { alert('Yükleme hatası: ' + err.message); }
-    setUploading(false);
-  };
-  return <div style={{marginBottom:10}}>
-    <label style={S.label}>{label}</label>
-    <div style={{display:'flex',gap:8,alignItems:'center'}}>
-      <input style={{...S.input,marginBottom:0,flex:1}} value={value||''} onChange={e=>onChange(e.target.value)} placeholder="URL yapıştır veya dosya yükle" />
-      <label style={{...S.btnO,cursor:'pointer',whiteSpace:'nowrap',padding:'9px 14px'}}>
-        {uploading?'Yükleniyor...':'📷 Yükle'}
-        <input type="file" accept="image/*" onChange={handleFile} style={{display:'none'}} />
-      </label>
-    </div>
-    {value && <img src={value} alt="" style={{height:60,marginTop:6,objectFit:'contain',borderRadius:4,border:'1px solid #eee'}} />}
-  </div>;
-}
+      const fileData = await fileToBase64(file);
+      const json = await adminPost(password, {
+        action: "upload_image",
+        fileName: file.name,
+        fileData,
+        contentType: file.type || "application/octet-stream",
+      });
+      onChange(json.url);
+      if (onUploaded) onUploaded(json.url);
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setUploading(false);
+      e.target.value = "";
+    }
+  }
 
-/* ── Login Screen ── */
-function LoginScreen({onLogin}) {
-  const [pw,setPw]=useState('');
-  const [error,setError]=useState('');
-  const [loading,setLoading]=useState(false);
-  const handle=async(e)=>{
-    e.preventDefault();setLoading(true);setError('');
-    try{sessionStorage.setItem('hst_admin_pw',pw);await adminFetch({action:'login'});onLogin();}
-    catch{setError('Yanlış şifre');sessionStorage.removeItem('hst_admin_pw');}
-    setLoading(false);
-  };
-  return<div style={{...S.container,display:'flex',justifyContent:'center',alignItems:'center'}}>
-    <div style={{...S.card,maxWidth:380,width:'100%',textAlign:'center',padding:32}}>
-      <div style={{fontSize:40,marginBottom:12}}>🔒</div>
-      <h2 style={{color:C.navy,marginBottom:20,fontFamily:"'Cormorant Garamond',serif"}}>HST Admin Panel</h2>
-      {error&&<div style={S.msg('error')}>{error}</div>}
-      <input type="password" placeholder="Admin şifresi" value={pw} onChange={e=>setPw(e.target.value)} onKeyDown={e=>e.key==='Enter'&&handle(e)} style={S.input} autoFocus/>
-      <button onClick={handle} style={{...S.btnP,width:'100%'}} disabled={loading}>{loading?'Giriş yapılıyor...':'Giriş Yap'}</button>
-    </div>
-  </div>;
-}
-
-/* ══════════════════════════════════════════
-   GENERIC CRUD MANAGER
-   ══════════════════════════════════════════ */
-function CrudManager({table, title, fields, emptyItem, renderCard}) {
-  const [items,setItems]=useState([]);
-  const [editing,setEditing]=useState(null);
-  const [msg,setMsg]=useState(null);
-  const [loading,setLoading]=useState(true);
-
-  const load=useCallback(async()=>{
-    try{const d=await adminFetch({action:'list',table});setItems(d);}catch(e){setMsg({type:'error',text:e.message});}
-    setLoading(false);
-  },[table]);
-  useEffect(()=>{load();},[load]);
-
-  const save=async()=>{
-    try{
-      const cleanData={...editing};delete cleanData.id;delete cleanData.created_at;delete cleanData.updated_at;
-      if(editing.id){await adminFetch({action:'update',table,id:editing.id,data:cleanData});setMsg({type:'success',text:'Güncellendi'});}
-      else{await adminFetch({action:'create',table,data:cleanData});setMsg({type:'success',text:'Oluşturuldu'});}
-      setEditing(null);load();
-    }catch(e){setMsg({type:'error',text:e.message});}
-  };
-  const remove=async(id)=>{
-    if(!confirm('Silmek istediğine emin misin?'))return;
-    try{await adminFetch({action:'delete',table,id});setMsg({type:'success',text:'Silindi'});load();}catch(e){setMsg({type:'error',text:e.message});}
-  };
-
-  if(loading)return<p>Yükleniyor...</p>;
-
-  if(editing)return<div>
-    <h3 style={{color:C.navy,marginBottom:14,fontFamily:"'Cormorant Garamond',serif"}}>{editing.id?`${title} Düzenle`:`Yeni ${title}`}</h3>
-    {fields.map(f=>{
-      if(f.type==='image')return<ImageField key={f.key} label={f.label} value={editing[f.key]} onChange={v=>setEditing({...editing,[f.key]:v})}/>;
-      if(f.type==='textarea')return<div key={f.key}><label style={S.label}>{f.label}</label><textarea style={S.textarea} value={editing[f.key]||''} onChange={e=>setEditing({...editing,[f.key]:e.target.value})} rows={f.rows||4}/></div>;
-      if(f.type==='checkbox')return<div key={f.key} style={{display:'flex',alignItems:'center',gap:6,marginBottom:10}}><input type="checkbox" checked={!!editing[f.key]} onChange={e=>setEditing({...editing,[f.key]:e.target.checked})}/><span style={{fontSize:13}}>{f.label}</span></div>;
-      if(f.type==='number')return<div key={f.key}><label style={S.label}>{f.label}</label><input style={S.input} type="number" value={editing[f.key]||0} onChange={e=>setEditing({...editing,[f.key]:parseInt(e.target.value)||0})}/></div>;
-      return<div key={f.key}><label style={S.label}>{f.label}</label><input style={S.input} value={editing[f.key]||''} onChange={e=>setEditing({...editing,[f.key]:e.target.value})}/></div>;
-    })}
-    <div style={{display:'flex',gap:8,marginTop:8}}>
-      <button style={S.btnP} onClick={save}>Kaydet</button>
-      <button style={S.btnS} onClick={()=>setEditing(null)}>İptal</button>
-    </div>
-  </div>;
-
-  return<div>
-    {msg&&<div style={S.msg(msg.type)}>{msg.text}</div>}
-    <div style={{...S.row,marginBottom:16}}><h3 style={{color:C.navy,margin:0,fontFamily:"'Cormorant Garamond',serif"}}>{title} ({items.length})</h3><button style={S.btnO} onClick={()=>setEditing({...emptyItem})}>+ Yeni</button></div>
-    {items.length===0&&<p style={{color:'#888'}}>Henüz kayıt yok.</p>}
-    {items.map(item=><div key={item.id} style={S.card}>
-      <div style={S.row}>
-        <div style={{flex:1}}>{renderCard?renderCard(item):<strong>{item.title||item.company_name||item.question||item.label||item.key}</strong>}</div>
-        <div style={{display:'flex',gap:6,alignItems:'center',flexShrink:0}}>
-          {item.hasOwnProperty('published')&&<span style={S.badge(item.published)}>{item.published?'Yayında':'Taslak'}</span>}
-          {item.hasOwnProperty('is_active')&&item.hasOwnProperty('order_index')&&<span style={S.badge(item.is_active)}>{item.is_active?'Aktif':'Pasif'}</span>}
-          <button style={S.btnP} onClick={()=>setEditing({...item})}>Düzenle</button>
-          <button style={S.btnD} onClick={()=>remove(item.id)}>Sil</button>
-        </div>
+  return (
+    <div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8, alignItems: "center" }}>
+        <TextInput value={value || ""} onChange={(e) => onChange(e.target.value)} placeholder="URL yapıştır veya dosya yükle" />
+        <label style={{ background: C.orange, color: "#fff", borderRadius: 8, padding: "11px 16px", cursor: "pointer", fontWeight: 700, fontSize: 14 }}>
+          {uploading ? "Yükleniyor..." : "Yükle"}
+          <input type="file" accept="image/*" onChange={handleFile} style={{ display: "none" }} />
+        </label>
       </div>
-    </div>)}
-  </div>;
-}
-
-/* ══════════════════════════════════════════
-   CONTACT MANAGER (special - single row)
-   ══════════════════════════════════════════ */
-function ContactManager() {
-  const [c,setC]=useState(null);
-  const [msg,setMsg]=useState(null);
-  const [loading,setLoading]=useState(true);
-  const load=useCallback(async()=>{
-    try{const d=await adminFetch({action:'list',table:'contact_info'});if(d.length>0)setC(d[0]);}catch(e){setMsg({type:'error',text:e.message});}
-    setLoading(false);
-  },[]);
-  useEffect(()=>{load();},[load]);
-  const save=async()=>{try{await adminFetch({action:'update',table:'contact_info',id:c.id,data:c});setMsg({type:'success',text:'Güncellendi'});load();}catch(e){setMsg({type:'error',text:e.message});}};
-  if(loading)return<p>Yükleniyor...</p>;
-  if(!c)return<p>İletişim bilgisi bulunamadı.</p>;
-  return<div>
-    {msg&&<div style={S.msg(msg.type)}>{msg.text}</div>}
-    <h3 style={{color:C.navy,marginBottom:14,fontFamily:"'Cormorant Garamond',serif"}}>İletişim Bilgileri</h3>
-    <div style={S.card}>
-      {[{k:'phone',l:'Telefon'},{k:'whatsapp',l:'WhatsApp (905...)'},{k:'email',l:'E-posta'},{k:'address',l:'Adres',ta:true},{k:'working_hours',l:'Çalışma Saatleri'},{k:'google_maps_url',l:'Google Maps URL'}].map(f=>
-        <div key={f.k}><label style={S.label}>{f.l}</label>
-        {f.ta?<textarea style={S.textarea} value={c[f.k]||''} onChange={e=>setC({...c,[f.k]:e.target.value})} rows={2}/>
-        :<input style={S.input} value={c[f.k]||''} onChange={e=>setC({...c,[f.k]:e.target.value})}/>}
-        </div>
-      )}
-      <button style={S.btnP} onClick={save}>Kaydet</button>
+      {value ? <img src={value} alt="Önizleme" style={{ marginTop: 10, maxWidth: 220, borderRadius: 8, border: `1px solid ${C.border}` }} /> : null}
     </div>
-  </div>;
+  );
 }
 
-/* ══════════════════════════════════════════
-   ABOUT MANAGER (key-value pairs)
-   ══════════════════════════════════════════ */
-function AboutManager() {
-  const [items,setItems]=useState([]);
-  const [msg,setMsg]=useState(null);
-  const [loading,setLoading]=useState(true);
-  const labels={main_text:'Ana Metin',mission:'Misyon',vision:'Vizyon'};
-  const load=useCallback(async()=>{
-    try{const d=await adminFetch({action:'list',table:'about_content'});setItems(d);}catch(e){setMsg({type:'error',text:e.message});}
-    setLoading(false);
-  },[]);
-  useEffect(()=>{load();},[load]);
-  const save=async(item)=>{try{await adminFetch({action:'update',table:'about_content',id:item.id,data:{value:item.value}});setMsg({type:'success',text:'Güncellendi'});load();}catch(e){setMsg({type:'error',text:e.message});}};
-
-  if(loading)return<p>Yükleniyor...</p>;
-  return<div>
-    {msg&&<div style={S.msg(msg.type)}>{msg.text}</div>}
-    <h3 style={{color:C.navy,marginBottom:14,fontFamily:"'Cormorant Garamond',serif"}}>Hakkımızda İçeriği</h3>
-    {items.map(item=><div key={item.id} style={S.card}>
-      <label style={{...S.label,fontSize:13,fontWeight:700,color:C.navy}}>{labels[item.key]||item.key}</label>
-      <textarea style={S.textarea} value={item.value} onChange={e=>{const n=[...items];const idx=n.findIndex(x=>x.id===item.id);n[idx]={...item,value:e.target.value};setItems(n);}} rows={item.key==='main_text'?6:3}/>
-      <button style={S.btnP} onClick={()=>save(item)}>Kaydet</button>
-    </div>)}
-  </div>;
+function LoginScreen({ password, setPassword, onLogin, busy }) {
+  return (
+    <div style={{ minHeight: "100vh", background: C.cream, display: "grid", placeItems: "center", padding: 20 }}>
+      <div style={{ width: "100%", maxWidth: 420, background: "#fff", border: `1px solid ${C.border}`, borderRadius: 16, padding: 28 }}>
+        <h1 style={{ color: C.navy, marginTop: 0, marginBottom: 10 }}>HST Admin Panel</h1>
+        <p style={{ color: C.gray, lineHeight: 1.6, marginBottom: 18 }}>Yönetim paneline erişmek için şifreyi girin.</p>
+        <TextInput type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Admin şifresi" />
+        <button onClick={onLogin} disabled={busy} style={{ marginTop: 12, width: "100%", background: C.orange, color: "#fff", border: 0, borderRadius: 10, padding: "12px 16px", fontWeight: 700, cursor: "pointer" }}>
+          {busy ? "Giriş yapılıyor..." : "Giriş Yap"}
+        </button>
+      </div>
+    </div>
+  );
 }
 
-/* ══════════════════════════════════════════
-   MAIN ADMIN PANEL
-   ══════════════════════════════════════════ */
+function BlogEditor({ form, setForm, password }) {
+  return (
+    <>
+      <Field label="Başlık">
+        <TextInput value={form.title} onChange={(e) => {
+          const title = e.target.value;
+          setForm((p) => ({ ...p, title, slug: p.slug && p.slug !== slugify(p.title) ? p.slug : slugify(title) }));
+        }} />
+      </Field>
+      <Field label="Slug (URL)" hint="Başlığa göre otomatik oluşturulur, istersen elle de değiştirebilirsin.">
+        <TextInput value={form.slug} onChange={(e) => setForm((p) => ({ ...p, slug: slugify(e.target.value) }))} />
+      </Field>
+      <Field label="Özet">
+        <TextArea rows={3} value={form.excerpt} onChange={(e) => setForm((p) => ({ ...p, excerpt: e.target.value }))} />
+      </Field>
+      <Field label="Kapak Görseli">
+        <UploadField value={form.cover_image} onChange={(url) => setForm((p) => ({ ...p, cover_image: url }))} password={password} />
+      </Field>
+      <Field label="İçerik">
+        <TextArea rows={16} value={form.content} onChange={(e) => setForm((p) => ({ ...p, content: e.target.value }))} />
+      </Field>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+        <Field label="Yazar">
+          <TextInput value={form.author || ""} onChange={(e) => setForm((p) => ({ ...p, author: e.target.value }))} />
+        </Field>
+        <Field label="Durum">
+          <div style={{ paddingTop: 12 }}><CheckBox checked={!!form.published} onChange={(e) => setForm((p) => ({ ...p, published: e.target.checked }))} label="Yayınla" /></div>
+        </Field>
+      </div>
+    </>
+  );
+}
+
+function CityEditor({ form, setForm, password }) {
+  return (
+    <>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+        <Field label="İl Adı">
+          <TextInput value={form.city_name} onChange={(e) => {
+            const city_name = e.target.value;
+            setForm((p) => ({
+              ...p,
+              city_name,
+              slug: p.slug && p.slug !== slugify(p.city_name) ? p.slug : slugify(city_name),
+              hero_title: p.hero_title || `${city_name} Periyodik Kontrol Hizmetleri`,
+            }));
+          }} />
+        </Field>
+        <Field label="Slug">
+          <TextInput value={form.slug} onChange={(e) => setForm((p) => ({ ...p, slug: slugify(e.target.value) }))} />
+        </Field>
+      </div>
+      <Field label="Meta Title">
+        <TextInput value={form.meta_title} onChange={(e) => setForm((p) => ({ ...p, meta_title: e.target.value }))} placeholder="Ankara Periyodik Kontrol Hizmetleri | HST Periyodik" />
+      </Field>
+      <Field label="Meta Description">
+        <TextArea rows={3} value={form.meta_description} onChange={(e) => setForm((p) => ({ ...p, meta_description: e.target.value }))} />
+      </Field>
+      <Field label="Hero Başlık">
+        <TextInput value={form.hero_title} onChange={(e) => setForm((p) => ({ ...p, hero_title: e.target.value }))} />
+      </Field>
+      <Field label="Hero Alt Başlık">
+        <TextArea rows={3} value={form.hero_subtitle} onChange={(e) => setForm((p) => ({ ...p, hero_subtitle: e.target.value }))} />
+      </Field>
+      <Field label="Ana İçerik" hint="Şehir sayfasının ana SEO metni burada yer alır.">
+        <TextArea rows={14} value={form.content} onChange={(e) => setForm((p) => ({ ...p, content: e.target.value }))} />
+      </Field>
+      <Field label="Hizmetler Giriş Başlığı">
+        <TextInput value={form.services_intro} onChange={(e) => setForm((p) => ({ ...p, services_intro: e.target.value }))} placeholder="Ankara'da sunduğumuz hizmetler:" />
+      </Field>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+        <Field label="CTA Buton Metni">
+          <TextInput value={form.cta_text} onChange={(e) => setForm((p) => ({ ...p, cta_text: e.target.value }))} />
+        </Field>
+        <Field label="Sıralama">
+          <TextInput type="number" value={form.order_index ?? 0} onChange={(e) => setForm((p) => ({ ...p, order_index: Number(e.target.value || 0) }))} />
+        </Field>
+      </div>
+      <Field label="Kapak Görseli / Hero Görseli">
+        <UploadField value={form.image_url} onChange={(url) => setForm((p) => ({ ...p, image_url: url }))} password={password} />
+      </Field>
+      <CheckBox checked={!!form.is_active} onChange={(e) => setForm((p) => ({ ...p, is_active: e.target.checked }))} label="Sayfa aktif" />
+    </>
+  );
+}
+
+function SimpleEditor({ tab, form, setForm, password }) {
+  if (tab === "blogs") return <BlogEditor form={form} setForm={setForm} password={password} />;
+  if (tab === "city_pages") return <CityEditor form={form} setForm={setForm} password={password} />;
+
+  if (tab === "hero_slides") {
+    return (
+      <>
+        <Field label="Başlık"><TextInput value={form.title} onChange={(e) => setForm((p) => ({ ...p, title: e.target.value }))} /></Field>
+        <Field label="Alt Başlık"><TextArea rows={3} value={form.subtitle} onChange={(e) => setForm((p) => ({ ...p, subtitle: e.target.value }))} /></Field>
+        <Field label="Görsel"><UploadField value={form.image_url} onChange={(url) => setForm((p) => ({ ...p, image_url: url }))} password={password} /></Field>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          <Field label="Buton Metni"><TextInput value={form.button_text} onChange={(e) => setForm((p) => ({ ...p, button_text: e.target.value }))} /></Field>
+          <Field label="Buton Linki"><TextInput value={form.button_link} onChange={(e) => setForm((p) => ({ ...p, button_link: e.target.value }))} /></Field>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 12, alignItems: "center" }}>
+          <Field label="Sıralama"><TextInput type="number" value={form.order_index ?? 0} onChange={(e) => setForm((p) => ({ ...p, order_index: Number(e.target.value || 0) }))} /></Field>
+          <div style={{ paddingTop: 28 }}><CheckBox checked={!!form.is_active} onChange={(e) => setForm((p) => ({ ...p, is_active: e.target.checked }))} label="Aktif" /></div>
+        </div>
+      </>
+    );
+  }
+
+  if (tab === "services") {
+    return (
+      <>
+        <Field label="Başlık"><TextInput value={form.title} onChange={(e) => setForm((p) => ({ ...p, title: e.target.value }))} /></Field>
+        <Field label="Açıklama"><TextArea rows={5} value={form.description} onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))} /></Field>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
+          <Field label="İkon"><TextInput value={form.icon || ""} onChange={(e) => setForm((p) => ({ ...p, icon: e.target.value }))} /></Field>
+          <Field label="Kategori"><TextInput value={form.category || ""} onChange={(e) => setForm((p) => ({ ...p, category: e.target.value }))} /></Field>
+          <Field label="Fiyat Bilgisi"><TextInput value={form.price_info || ""} onChange={(e) => setForm((p) => ({ ...p, price_info: e.target.value }))} /></Field>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 12, alignItems: "center" }}>
+          <Field label="Sıralama"><TextInput type="number" value={form.order_index ?? 0} onChange={(e) => setForm((p) => ({ ...p, order_index: Number(e.target.value || 0) }))} /></Field>
+          <div style={{ paddingTop: 28 }}><CheckBox checked={!!form.is_active} onChange={(e) => setForm((p) => ({ ...p, is_active: e.target.checked }))} label="Aktif" /></div>
+        </div>
+      </>
+    );
+  }
+
+  if (tab === "client_references") {
+    return (
+      <>
+        <Field label="Firma Adı"><TextInput value={form.company_name} onChange={(e) => setForm((p) => ({ ...p, company_name: e.target.value }))} /></Field>
+        <Field label="Açıklama"><TextArea rows={4} value={form.description || ""} onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))} /></Field>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          <Field label="Hizmet Tipi"><TextInput value={form.service_type || ""} onChange={(e) => setForm((p) => ({ ...p, service_type: e.target.value }))} /></Field>
+          <Field label="Konum"><TextInput value={form.location || ""} onChange={(e) => setForm((p) => ({ ...p, location: e.target.value }))} /></Field>
+        </div>
+        <Field label="Logo"><UploadField value={form.image_url} onChange={(url) => setForm((p) => ({ ...p, image_url: url }))} password={password} /></Field>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 12, alignItems: "center" }}>
+          <Field label="Sıralama"><TextInput type="number" value={form.order_index ?? 0} onChange={(e) => setForm((p) => ({ ...p, order_index: Number(e.target.value || 0) }))} /></Field>
+          <div style={{ paddingTop: 28 }}><CheckBox checked={!!form.is_active} onChange={(e) => setForm((p) => ({ ...p, is_active: e.target.checked }))} label="Aktif" /></div>
+        </div>
+      </>
+    );
+  }
+
+  if (tab === "faq_items") {
+    return (
+      <>
+        <Field label="Soru"><TextInput value={form.question} onChange={(e) => setForm((p) => ({ ...p, question: e.target.value }))} /></Field>
+        <Field label="Cevap"><TextArea rows={5} value={form.answer} onChange={(e) => setForm((p) => ({ ...p, answer: e.target.value }))} /></Field>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 12, alignItems: "center" }}>
+          <Field label="Sıralama"><TextInput type="number" value={form.order_index ?? 0} onChange={(e) => setForm((p) => ({ ...p, order_index: Number(e.target.value || 0) }))} /></Field>
+          <div style={{ paddingTop: 28 }}><CheckBox checked={!!form.is_active} onChange={(e) => setForm((p) => ({ ...p, is_active: e.target.checked }))} label="Aktif" /></div>
+        </div>
+      </>
+    );
+  }
+
+  if (tab === "site_stats") {
+    return (
+      <>
+        <Field label="Etiket"><TextInput value={form.label} onChange={(e) => setForm((p) => ({ ...p, label: e.target.value }))} /></Field>
+        <Field label="Değer"><TextInput value={form.value} onChange={(e) => setForm((p) => ({ ...p, value: e.target.value }))} /></Field>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 12, alignItems: "center" }}>
+          <Field label="Sıralama"><TextInput type="number" value={form.order_index ?? 0} onChange={(e) => setForm((p) => ({ ...p, order_index: Number(e.target.value || 0) }))} /></Field>
+          <div style={{ paddingTop: 28 }}><CheckBox checked={!!form.is_active} onChange={(e) => setForm((p) => ({ ...p, is_active: e.target.checked }))} label="Aktif" /></div>
+        </div>
+      </>
+    );
+  }
+
+  return null;
+}
+
 export default function AdminPanel() {
-  const [loggedIn,setLoggedIn]=useState(false);
-  const [tab,setTab]=useState('slides');
-  useEffect(()=>{
-    const pw=sessionStorage.getItem('hst_admin_pw');
-    if(pw){adminFetch({action:'login'}).then(()=>setLoggedIn(true)).catch(()=>sessionStorage.removeItem('hst_admin_pw'));}
-  },[]);
-  const logout=()=>{sessionStorage.removeItem('hst_admin_pw');setLoggedIn(false);};
-  if(!loggedIn)return<LoginScreen onLogin={()=>setLoggedIn(true)}/>;
+  const [password, setPassword] = useState(sessionStorage.getItem("admin_password") || "");
+  const [authorized, setAuthorized] = useState(!!sessionStorage.getItem("admin_password"));
+  const [busy, setBusy] = useState(false);
+  const [tab, setTab] = useState("hero_slides");
+  const [rowsByTab, setRowsByTab] = useState({});
+  const [selectedId, setSelectedId] = useState(null);
+  const [form, setForm] = useState(EMPTY_FORMS.hero_slides);
+  const [loading, setLoading] = useState(false);
 
-  const tabs=[
-    {key:'slides',label:'Hero Slider'},
-    {key:'blogs',label:'Blog'},
-    {key:'services',label:'Hizmetler'},
-    {key:'refs',label:'Referanslar'},
-    {key:'faq',label:'SSS'},
-    {key:'stats',label:'İstatistikler'},
-    {key:'about',label:'Hakkımızda'},
-    {key:'contact',label:'İletişim'},
-  ];
+  const rows = rowsByTab[tab] || [];
 
-  const slugify=(t)=>t.toLowerCase().replace(/ğ/g,'g').replace(/ü/g,'u').replace(/ş/g,'s').replace(/ı/g,'i').replace(/ö/g,'o').replace(/ç/g,'c').replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'');
+  const selectedRow = useMemo(() => rows.find((r) => r.id === selectedId) || null, [rows, selectedId]);
 
-  return<div style={S.container}>
-    <div style={S.header}>
-      <h1 style={S.title}>HST Admin Panel</h1>
-      <div style={{display:'flex',gap:10,alignItems:'center'}}>
-        <a href="/" target="_blank" style={{...S.btnS,textDecoration:'none',fontSize:12}}>Siteyi Gör ↗</a>
-        <button style={{...S.btnS,color:C.orange,borderColor:C.orange}} onClick={logout}>Çıkış</button>
+  useEffect(() => {
+    if (!authorized) return;
+    loadTab(tab);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authorized, tab]);
+
+  useEffect(() => {
+    if (selectedRow && tab !== "about_content" && tab !== "contact_info") {
+      setForm({ ...selectedRow });
+    }
+  }, [selectedRow, tab]);
+
+  async function loadTab(currentTab) {
+    setLoading(true);
+    try {
+      const rows = await adminPost(password, { action: "list", table: currentTab });
+      setRowsByTab((prev) => ({ ...prev, [currentTab]: rows }));
+
+      if (currentTab === "contact_info") {
+        const row = rows?.[0] || { phone: "", whatsapp: "", email: "", address: "", working_hours: "", google_maps_url: "" };
+        setSelectedId(row.id || null);
+        setForm(row);
+      } else if (currentTab === "about_content") {
+        const map = Object.fromEntries((rows || []).map((r) => [r.key, r]));
+        setForm({
+          main_text: map.main_text?.value || "",
+          mission: map.mission?.value || "",
+          vision: map.vision?.value || "",
+        });
+      } else if (rows?.length) {
+        setSelectedId(rows[0].id);
+        setForm({ ...rows[0] });
+      } else {
+        setSelectedId(null);
+        setForm({ ...(EMPTY_FORMS[currentTab] || {}) });
+      }
+    } catch (err) {
+      alert(err.message);
+      if (/Yetkisiz/.test(err.message)) {
+        logout();
+      }
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function login() {
+    setBusy(true);
+    try {
+      await adminPost(password, { action: "login" });
+      sessionStorage.setItem("admin_password", password);
+      setAuthorized(true);
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function logout() {
+    sessionStorage.removeItem("admin_password");
+    setAuthorized(false);
+    setPassword("");
+  }
+
+  function startCreate() {
+    setSelectedId(null);
+    if (tab === "about_content") return;
+    if (tab === "contact_info") return;
+    setForm({ ...(EMPTY_FORMS[tab] || {}) });
+  }
+
+  async function save() {
+    setBusy(true);
+    try {
+      if (tab === "about_content") {
+        const currentRows = rowsByTab.about_content || [];
+        const map = Object.fromEntries(currentRows.map((r) => [r.key, r]));
+        const payloads = [
+          ["main_text", form.main_text],
+          ["mission", form.mission],
+          ["vision", form.vision],
+        ];
+        for (const [key, value] of payloads) {
+          if (map[key]?.id) {
+            await adminPost(password, { action: "update", table: "about_content", id: map[key].id, data: { value } });
+          } else {
+            await adminPost(password, { action: "create", table: "about_content", data: { key, value } });
+          }
+        }
+        await loadTab("about_content");
+        alert("Hakkımızda alanı kaydedildi.");
+        return;
+      }
+
+      if (tab === "contact_info") {
+        if (selectedId) {
+          await adminPost(password, { action: "update", table: "contact_info", id: selectedId, data: form });
+        } else {
+          await adminPost(password, { action: "create", table: "contact_info", data: form });
+        }
+        await loadTab("contact_info");
+        alert("İletişim bilgileri kaydedildi.");
+        return;
+      }
+
+      if (selectedId) {
+        await adminPost(password, { action: "update", table: tab, id: selectedId, data: form });
+      } else {
+        await adminPost(password, { action: "create", table: tab, data: form });
+      }
+      await loadTab(tab);
+      alert("Kaydedildi.");
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function removeRow(id) {
+    if (!window.confirm("Bu kaydı silmek istediğine emin misin?")) return;
+    setBusy(true);
+    try {
+      await adminPost(password, { action: "delete", table: tab, id });
+      await loadTab(tab);
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!authorized) {
+    return <LoginScreen password={password} setPassword={setPassword} onLogin={login} busy={busy} />;
+  }
+
+  return (
+    <div style={{ background: C.cream, minHeight: "100vh", padding: "24px 28px 40px" }}>
+      <div style={{ maxWidth: 1240, margin: "0 auto" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16, borderBottom: `2px solid ${C.navy}`, paddingBottom: 16, marginBottom: 22 }}>
+          <h1 style={{ color: C.navy, margin: 0, fontSize: 28 }}>HST Admin Panel</h1>
+          <div style={{ display: "flex", gap: 10 }}>
+            <a href="/" target="_blank" rel="noreferrer" style={{ border: `1px solid ${C.border}`, padding: "10px 16px", borderRadius: 8, color: C.navy, textDecoration: "none", fontSize: 14 }}>Siteyi Gör ↗</a>
+            <button onClick={logout} style={{ border: `1px solid ${C.orange}`, padding: "10px 16px", borderRadius: 8, color: C.orange, background: "#fff", cursor: "pointer" }}>Çıkış</button>
+          </div>
+        </div>
+
+        <div style={{ display: "flex", gap: 10, overflowX: "auto", paddingBottom: 10, borderBottom: `1px solid ${C.border}`, marginBottom: 24 }}>
+          {TAB_ORDER.map((t) => (
+            <button
+              key={t}
+              onClick={() => setTab(t)}
+              style={{
+                background: "transparent",
+                border: 0,
+                borderBottom: tab === t ? `3px solid ${C.navy}` : "3px solid transparent",
+                color: tab === t ? C.navy : C.gray,
+                padding: "10px 18px",
+                cursor: "pointer",
+                fontWeight: tab === t ? 700 : 500,
+                whiteSpace: "nowrap",
+              }}
+            >
+              {TAB_LABELS[t]}
+            </button>
+          ))}
+        </div>
+
+        {tab === "about_content" ? (
+          <div style={{ display: "grid", gap: 14 }}>
+            <div style={{ background: "#fff", border: `1px solid ${C.border}`, borderRadius: 12, padding: 18 }}>
+              <Field label="Ana Metin"><TextArea rows={8} value={form.main_text || ""} onChange={(e) => setForm((p) => ({ ...p, main_text: e.target.value }))} /></Field>
+              <button onClick={save} disabled={busy} style={{ background: C.navy, color: "#fff", border: 0, borderRadius: 8, padding: "10px 16px", cursor: "pointer", fontWeight: 700 }}>Kaydet</button>
+            </div>
+            <div style={{ background: "#fff", border: `1px solid ${C.border}`, borderRadius: 12, padding: 18 }}>
+              <Field label="Misyon"><TextArea rows={5} value={form.mission || ""} onChange={(e) => setForm((p) => ({ ...p, mission: e.target.value }))} /></Field>
+              <button onClick={save} disabled={busy} style={{ background: C.navy, color: "#fff", border: 0, borderRadius: 8, padding: "10px 16px", cursor: "pointer", fontWeight: 700 }}>Kaydet</button>
+            </div>
+            <div style={{ background: "#fff", border: `1px solid ${C.border}`, borderRadius: 12, padding: 18 }}>
+              <Field label="Vizyon"><TextArea rows={5} value={form.vision || ""} onChange={(e) => setForm((p) => ({ ...p, vision: e.target.value }))} /></Field>
+              <button onClick={save} disabled={busy} style={{ background: C.navy, color: "#fff", border: 0, borderRadius: 8, padding: "10px 16px", cursor: "pointer", fontWeight: 700 }}>Kaydet</button>
+            </div>
+          </div>
+        ) : tab === "contact_info" ? (
+          <div style={{ background: "#fff", border: `1px solid ${C.border}`, borderRadius: 12, padding: 18 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <Field label="Telefon"><TextInput value={form.phone || ""} onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))} /></Field>
+              <Field label="WhatsApp"><TextInput value={form.whatsapp || ""} onChange={(e) => setForm((p) => ({ ...p, whatsapp: e.target.value }))} /></Field>
+            </div>
+            <Field label="E-posta"><TextInput value={form.email || ""} onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))} /></Field>
+            <Field label="Adres"><TextArea rows={4} value={form.address || ""} onChange={(e) => setForm((p) => ({ ...p, address: e.target.value }))} /></Field>
+            <Field label="Çalışma Saatleri"><TextInput value={form.working_hours || ""} onChange={(e) => setForm((p) => ({ ...p, working_hours: e.target.value }))} /></Field>
+            <Field label="Google Maps URL"><TextInput value={form.google_maps_url || ""} onChange={(e) => setForm((p) => ({ ...p, google_maps_url: e.target.value }))} /></Field>
+            <button onClick={save} disabled={busy} style={{ background: C.navy, color: "#fff", border: 0, borderRadius: 8, padding: "10px 16px", cursor: "pointer", fontWeight: 700 }}>Kaydet</button>
+          </div>
+        ) : (
+          <div style={{ display: "grid", gridTemplateColumns: "340px 1fr", gap: 18 }}>
+            <div style={{ background: "#fff", border: `1px solid ${C.border}`, borderRadius: 12, overflow: "hidden", minHeight: 560 }}>
+              <div style={{ padding: 16, borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <strong style={{ color: C.navy }}>{TAB_LABELS[tab]}</strong>
+                <button onClick={startCreate} style={{ border: `1px solid ${C.orange}`, background: "#fff", color: C.orange, borderRadius: 8, padding: "8px 12px", cursor: "pointer", fontWeight: 700 }}>Yeni</button>
+              </div>
+              <div style={{ maxHeight: 680, overflow: "auto" }}>
+                {loading ? <div style={{ padding: 16, color: C.gray }}>Yükleniyor...</div> : null}
+                {!loading && rows.length === 0 ? <div style={{ padding: 16, color: C.gray }}>Kayıt bulunamadı.</div> : null}
+                {rows.map((row) => {
+                  const title = row.title || row.city_name || row.company_name || row.question || row.label || row.slug || row.id;
+                  const sub = row.slug || row.email || row.service_type || row.value || row.created_at;
+                  return (
+                    <button
+                      key={row.id}
+                      onClick={() => { setSelectedId(row.id); setForm({ ...row }); }}
+                      style={{ width: "100%", textAlign: "left", padding: 14, border: 0, borderBottom: `1px solid ${C.border}`, cursor: "pointer", background: selectedId === row.id ? "#fff8f2" : "#fff" }}
+                    >
+                      <div style={{ fontWeight: 700, color: C.navy, fontSize: 14 }}>{title}</div>
+                      {sub ? <div style={{ color: C.gray, fontSize: 12, marginTop: 4 }}>{String(sub)}</div> : null}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div style={{ background: "#fff", border: `1px solid ${C.border}`, borderRadius: 12, padding: 18 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
+                <h2 style={{ margin: 0, color: C.navy, fontSize: 24 }}>{selectedId ? "Kaydı Düzenle" : `Yeni ${TAB_LABELS[tab]}`}</h2>
+                {selectedId ? (
+                  <button onClick={() => removeRow(selectedId)} disabled={busy} style={{ border: "1px solid #d9534f", color: "#d9534f", background: "#fff", borderRadius: 8, padding: "8px 12px", cursor: "pointer", fontWeight: 700 }}>Sil</button>
+                ) : null}
+              </div>
+              <SimpleEditor tab={tab} form={form} setForm={setForm} password={password} />
+              <div style={{ display: "flex", gap: 10, marginTop: 18 }}>
+                <button onClick={save} disabled={busy} style={{ background: C.navy, color: "#fff", border: 0, borderRadius: 8, padding: "10px 16px", cursor: "pointer", fontWeight: 700 }}>Kaydet</button>
+                <button onClick={() => { if (selectedRow) setForm({ ...selectedRow }); else setForm({ ...(EMPTY_FORMS[tab] || {}) }); }} style={{ background: "#fff", color: C.gray, border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px 16px", cursor: "pointer" }}>İptal</button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
-
-    <div style={S.tabs}>{tabs.map(t=><button key={t.key} style={S.tab(tab===t.key)} onClick={()=>setTab(t.key)}>{t.label}</button>)}</div>
-
-    {tab==='slides'&&<CrudManager table="hero_slides" title="Slide" emptyItem={{title:'',subtitle:'',image_url:'',button_text:'',button_link:'',order_index:0,is_active:true}}
-      fields={[{key:'title',label:'Başlık'},{key:'subtitle',label:'Alt Başlık',type:'textarea',rows:2},{key:'image_url',label:'Arka Plan Görseli',type:'image'},{key:'button_text',label:'Buton Metni'},{key:'button_link',label:'Buton Linki (örn: /teklif-hesapla)'},{key:'order_index',label:'Sıra',type:'number'},{key:'is_active',label:'Aktif',type:'checkbox'}]}
-      renderCard={item=><div><strong>{item.title}</strong><div style={{fontSize:12,color:'#888',marginTop:2}}>Sıra: {item.order_index} · {item.button_text&&`Buton: ${item.button_text}`}</div></div>}
-    />}
-
-    {tab==='blogs'&&<CrudManager table="blogs" title="Blog Yazısı" emptyItem={{title:'',slug:'',content:'',excerpt:'',cover_image:'',published:false}}
-      fields={[
-        {key:'title',label:'Başlık'},
-        {key:'slug',label:'Slug (URL) — otomatik oluşur'},
-        {key:'excerpt',label:'Özet'},
-        {key:'cover_image',label:'Kapak Görseli',type:'image'},
-        {key:'content',label:'İçerik',type:'textarea',rows:12},
-        {key:'published',label:'Yayınla',type:'checkbox'}
-      ]}
-      renderCard={item=><div><strong>{item.title}</strong><div style={{fontSize:12,color:'#888',marginTop:2}}>/blog/{item.slug}</div></div>}
-    />}
-
-    {tab==='services'&&<CrudManager table="services" title="Hizmet" emptyItem={{title:'',description:'',icon:'',category:'',price_info:'',order_index:0,is_active:true}}
-      fields={[{key:'title',label:'Hizmet Adı'},{key:'description',label:'Açıklama',type:'textarea',rows:4},{key:'icon',label:'İkon (emoji)'},{key:'category',label:'Kategori'},{key:'price_info',label:'Fiyat Bilgisi'},{key:'order_index',label:'Sıra',type:'number'},{key:'is_active',label:'Aktif',type:'checkbox'}]}
-      renderCard={item=><div><strong>{item.icon} {item.title}</strong>{item.category&&<span style={{fontSize:12,color:'#888'}}> · {item.category}</span>}</div>}
-    />}
-
-    {tab==='refs'&&<CrudManager table="client_references" title="Referans" emptyItem={{company_name:'',description:'',service_type:'',location:'',image_url:'',order_index:0,is_active:true}}
-      fields={[{key:'company_name',label:'Firma Adı'},{key:'description',label:'Açıklama',type:'textarea',rows:2},{key:'service_type',label:'Hizmet Türü'},{key:'location',label:'Konum'},{key:'image_url',label:'Firma Logosu',type:'image'},{key:'order_index',label:'Sıra',type:'number'},{key:'is_active',label:'Aktif',type:'checkbox'}]}
-      renderCard={item=><div style={{display:'flex',alignItems:'center',gap:10}}>
-        {item.image_url&&<img src={item.image_url} alt="" style={{height:30,objectFit:'contain'}}/>}
-        <div><strong>{item.company_name}</strong>{item.location&&<span style={{fontSize:12,color:'#888'}}> · {item.location}</span>}</div>
-      </div>}
-    />}
-
-    {tab==='faq'&&<CrudManager table="faq_items" title="SSS" emptyItem={{question:'',answer:'',order_index:0,is_active:true}}
-      fields={[{key:'question',label:'Soru'},{key:'answer',label:'Cevap',type:'textarea',rows:4},{key:'order_index',label:'Sıra',type:'number'},{key:'is_active',label:'Aktif',type:'checkbox'}]}
-      renderCard={item=><div><strong>{item.question}</strong><div style={{fontSize:12,color:'#888',marginTop:2}}>{item.answer?.substring(0,80)}...</div></div>}
-    />}
-
-    {tab==='stats'&&<CrudManager table="site_stats" title="İstatistik" emptyItem={{label:'',value:'',order_index:0,is_active:true}}
-      fields={[{key:'value',label:'Değer (örn: 500+, 81, %100)'},{key:'label',label:'Etiket (örn: Proje, İl, Yıl Deneyim)'},{key:'order_index',label:'Sıra',type:'number'},{key:'is_active',label:'Aktif',type:'checkbox'}]}
-      renderCard={item=><div><strong style={{color:C.orange,fontSize:18}}>{item.value}</strong> <span style={{fontSize:13}}>{item.label}</span></div>}
-    />}
-
-    {tab==='about'&&<AboutManager/>}
-    {tab==='contact'&&<ContactManager/>}
-  </div>;
+  );
 }
