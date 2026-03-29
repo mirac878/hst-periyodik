@@ -87,7 +87,7 @@ function Navbar() {
   const location = useLocation();
   useEffect(() => { const h = () => setScrolled(window.scrollY > 30); window.addEventListener('scroll', h); return () => window.removeEventListener('scroll', h); }, []);
   useEffect(() => { setMob(false); }, [location]);
-  const links = [{to:"/",label:"Ana Sayfa"},{to:"/hizmetler",label:"Hizmetler"},{to:"/hakkimizda",label:"Hakkımızda"},{to:"/referanslar",label:"Referanslar"},{to:"/blog",label:"Blog"},{to:"/teklif-hesapla",label:"Teklif Al"},{to:"/iletisim",label:"İletişim"}];
+  const links = [{to:"/",label:"Ana Sayfa"},{to:"/hizmetler",label:"Hizmetler"},{to:"/hizmet-bolgeleri",label:"İller"},{to:"/hakkimizda",label:"Hakkımızda"},{to:"/referanslar",label:"Referanslar"},{to:"/blog",label:"Blog"},{to:"/teklif-hesapla",label:"Teklif Al"},{to:"/iletisim",label:"İletişim"}];
   return <>
     <nav style={{position:"fixed",top:0,left:0,right:0,zIndex:150,background:scrolled?"#faf9f6e8":"#faf9f6",backdropFilter:"blur(14px)",borderBottom:`1px solid ${scrolled?"#e5e2dc":"transparent"}`,padding:"0 36px",display:"flex",alignItems:"center",justifyContent:"space-between",height:72,transition:"all .3s"}}>
       <Link to="/" style={{display:"flex",alignItems:"center",gap:12}}><img src="/amblem.png" alt="HST" style={{height:40}} onError={e=>{e.target.style.display='none'}}/><div><div style={{fontWeight:900,fontSize:16,letterSpacing:1.5,color:C.navy}}>HST</div><div style={{fontSize:9,fontWeight:700,letterSpacing:3,color:"#6b7280",textTransform:"uppercase"}}>Periyodik</div></div></Link>
@@ -148,6 +148,7 @@ function Home() {
   const { data: blogs } = useSupabase('blogs', { order:'created_at', asc:false, filter:['published',true] });
   const { data: refs } = useSupabase('client_references', { order:'order_index' });
   const { data: faqs } = useSupabase('faq_items', { order:'order_index' });
+  const { data: cities } = useSupabase('city_pages', { order:'order_index' });
   const [openFaq, setOpenFaq] = useState(null);
   const navigate = useNavigate();
   const recentBlogs = (blogs || []).slice(0, 4);
@@ -174,6 +175,11 @@ function Home() {
         <FadeIn><div className="card" style={{cursor:"pointer"}} onClick={()=>navigate(`/blog/${recentBlogs[0].slug}`)}>{recentBlogs[0].cover_image&&<div style={{height:220,background:`url(${recentBlogs[0].cover_image}) center/cover`,marginBottom:20}}/>}<div style={{fontSize:12,fontWeight:700,color:C.orange,letterSpacing:1,marginBottom:10}}>{new Date(recentBlogs[0].created_at).toLocaleDateString('tr-TR',{day:'numeric',month:'long',year:'numeric'})}</div><h3 style={{fontSize:22,color:C.navy,lineHeight:1.35,marginBottom:12}}>{recentBlogs[0].title}</h3><p style={{fontSize:14,color:"#6b7280",lineHeight:1.7}}>{recentBlogs[0].excerpt}</p><span style={{fontSize:13,fontWeight:700,color:C.orange,marginTop:14,display:"inline-block"}}>Devamını Oku →</span></div></FadeIn>
         {recentBlogs.length>1&&<div style={{display:"flex",flexDirection:"column",gap:16}}>{recentBlogs.slice(1,4).map((b,i)=><FadeIn key={b.id} delay={(i+1)*.1}><div className="card" style={{cursor:"pointer",display:"flex",gap:16,alignItems:"center"}} onClick={()=>navigate(`/blog/${b.slug}`)}>{b.cover_image&&<div style={{width:120,minWidth:120,height:90,background:`url(${b.cover_image}) center/cover`}} className="hide-mobile"/>}<div><div style={{fontSize:11,fontWeight:700,color:C.orange,letterSpacing:1,marginBottom:6}}>{new Date(b.created_at).toLocaleDateString('tr-TR',{day:'numeric',month:'long',year:'numeric'})}</div><h4 style={{fontSize:15,color:C.navy,lineHeight:1.35}}>{b.title}</h4></div></div></FadeIn>)}</div>}
       </div>
+    </div></section>}
+
+    {cities&&cities.length>0&&<section className="section" style={{paddingTop:20}}><div className="container">
+      <FadeIn><div style={{display:"flex",justifyContent:"space-between",alignItems:"end",gap:16,marginBottom:24,flexWrap:"wrap"}}><div><div className="section-label">Hizmet Verdiğimiz İller</div><h2 className="section-title" style={{marginBottom:0}}>Şehirlere Özel SEO Sayfaları</h2></div><Link to="/hizmet-bolgeleri" className="btn btn-outline" style={{padding:"10px 20px",fontSize:12}}>Tüm İlleri Gör →</Link></div></FadeIn>
+      <div className="city-grid" style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(220px,1fr))",gap:12}}>{cities.slice(0,12).map((c,i)=><FadeIn key={c.id} delay={i*.05}><Link to={`/periyodik-kontrol/${c.slug}`} className="card" style={{display:"block",padding:20,minHeight:120}}><div style={{fontSize:11,fontWeight:800,letterSpacing:2,color:C.orange,textTransform:"uppercase",marginBottom:10}}>{c.city_name}</div><h3 style={{fontSize:18,color:C.navy,marginBottom:8}}>{c.hero_title||`${c.city_name} Periyodik Kontrol`}</h3><p style={{fontSize:13,lineHeight:1.7,color:"#6b7280"}}>{(c.meta_description||c.hero_subtitle||"").slice(0,120)}{(c.meta_description||c.hero_subtitle||"").length>120?"...":""}</p></Link></FadeIn>)}</div>
     </div></section>}
 
     {refs&&refs.length>0&&<section style={{background:"#f0ece6",borderTop:"1px solid #e5e2dc",borderBottom:"1px solid #e5e2dc"}}><div className="container section">
@@ -256,7 +262,7 @@ function CityPage() {
   if (!city) return <div style={{paddingTop:140,textAlign:"center",color:"#6b7280"}}>Yükleniyor...</div>;
   return <div style={{paddingTop:72}}>
     {/* Hero */}
-    <section style={{background:`linear-gradient(135deg,${C.navy},${C.navyL})`,padding:"80px 0"}}>
+    <section style={{background:city.image_url?`linear-gradient(rgba(15,43,76,.78),rgba(22,58,94,.86)),url(${city.image_url}) center/cover`:`linear-gradient(135deg,${C.navy},${C.navyL})`,padding:"80px 0"}}>
       <div className="container" style={{textAlign:"center",color:"#fff"}}>
         <FadeIn><div style={{fontSize:11,fontWeight:800,letterSpacing:4,textTransform:"uppercase",color:C.orange,marginBottom:16}}>Periyodik Kontrol</div></FadeIn>
         <FadeIn delay={.1}><h1 style={{fontSize:"clamp(30px,4.5vw,48px)",lineHeight:1.2,marginBottom:16}}>{city.hero_title}</h1></FadeIn>
@@ -327,6 +333,16 @@ function CityLinks({ currentSlug }) {
   </div>;
 }
 
+function RegionsPage() {
+  const { data: cities } = useSupabase('city_pages', { order: 'order_index' });
+  return <div style={{paddingTop:72}}><section className="section"><div className="container">
+    <FadeIn><div className="section-label">Hizmet Bölgeleri</div></FadeIn>
+    <FadeIn delay={.1}><h1 className="section-title" style={{marginBottom:14}}>İllere Özel Hizmet Sayfaları</h1></FadeIn>
+    <FadeIn delay={.15}><p style={{fontSize:15,color:"#6b7280",lineHeight:1.8,maxWidth:760,marginBottom:32}}>Periyodik kontrol, patlamadan korunma dokümanı, endüstriyel raf statik analizi ve ortam ölçümleri hizmetlerimizi Türkiye genelinde sunuyoruz. Aşağıdaki şehir sayfalarından bulunduğunuz ile özel içeriklere ulaşabilirsiniz.</p></FadeIn>
+    <div className="city-grid" style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(260px,1fr))",gap:16}}>{(cities||[]).map((c,i)=><FadeIn key={c.id} delay={i*.04}><Link to={`/periyodik-kontrol/${c.slug}`} className="card" style={{display:"block",minHeight:180}}><div style={{fontSize:11,fontWeight:800,letterSpacing:2,color:C.orange,textTransform:"uppercase",marginBottom:12}}>{c.city_name}</div><h3 style={{fontSize:22,color:C.navy,lineHeight:1.35,marginBottom:10}}>{c.hero_title}</h3><p style={{fontSize:14,color:"#6b7280",lineHeight:1.8}}>{c.meta_description||c.hero_subtitle}</p><span style={{fontSize:13,fontWeight:700,color:C.orange,marginTop:12,display:"inline-block"}}>Sayfaya Git →</span></Link></FadeIn>)}</div>
+  </div></section></div>;
+}
+
 function QuotePage() {
   const[sel,setSel]=useState({});const[oc,setOc]=useState(null);const[fm,setFm]=useState({c:"",p:"",t:"",e:""});
   const tog=id=>setSel(p=>{const n={...p};if(n[id])delete n[id];else n[id]=1;return n});
@@ -378,6 +394,7 @@ export default function App() {
       <Route element={<Layout />}>
         <Route path="/" element={<Home />} />
         <Route path="/hizmetler" element={<ServicesPage />} />
+        <Route path="/hizmet-bolgeleri" element={<RegionsPage />} />
         <Route path="/hakkimizda" element={<AboutPage />} />
         <Route path="/referanslar" element={<ReferencesPage />} />
         <Route path="/blog" element={<BlogPage />} />
