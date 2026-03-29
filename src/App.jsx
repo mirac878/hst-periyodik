@@ -78,7 +78,7 @@ img{max-width:100%;height:auto}
 .section-title{font-size:clamp(28px,4vw,42px);color:#0F2B4C;margin-bottom:16px;line-height:1.2}
 input,textarea{width:100%;padding:13px 16px;border:1px solid #e5e2dc;background:#faf9f6;color:#1a2332;font-size:14px;font-family:inherit;outline:none;transition:border .2s}
 input:focus,textarea:focus{border-color:#C75B12}
-@media(max-width:768px){.container{padding:0 20px}.section{padding:50px 0}.hide-mobile{display:none!important}.mobile-menu-btn{display:flex!important}.nav-links{display:none!important}.hero-grid{grid-template-columns:1fr!important}.stats-grid{grid-template-columns:repeat(2,1fr)!important}.services-grid{grid-template-columns:1fr!important}.blog-grid{grid-template-columns:1fr!important}.refs-grid{grid-template-columns:repeat(2,1fr)!important}.faq-grid{grid-template-columns:1fr!important}.contact-grid{grid-template-columns:1fr!important}.footer-inner{flex-direction:column;text-align:center;gap:16px}.about-features{grid-template-columns:1fr!important}}
+@media(max-width:768px){.container{padding:0 20px}.section{padding:50px 0}.hide-mobile{display:none!important}.mobile-menu-btn{display:flex!important}.nav-links{display:none!important}.hero-grid{grid-template-columns:1fr!important}.stats-grid{grid-template-columns:repeat(2,1fr)!important}.services-grid{grid-template-columns:1fr!important}.blog-grid{grid-template-columns:1fr!important}.refs-grid{grid-template-columns:repeat(2,1fr)!important}.faq-grid{grid-template-columns:1fr!important}.contact-grid{grid-template-columns:1fr!important}.footer-inner{flex-direction:column;text-align:center;gap:16px}.about-features{grid-template-columns:1fr!important}.city-grid{grid-template-columns:1fr!important}}
 `}</style>;
 
 function Navbar() {
@@ -243,6 +243,90 @@ function BlogPost() {
   </div></section></div>;
 }
 
+function CityPage() {
+  const { slug } = useParams();
+  const [city, setCity] = useState(null);
+  const { data: services } = useSupabase('services', { order: 'order_index' });
+  const { data: contact } = useSupabase('contact_info', { single: true });
+  const navigate = useNavigate();
+  useEffect(() => {
+    supabase.from('city_pages').select('*').eq('slug', slug).eq('is_active', true).single()
+      .then(({ data }) => setCity(data));
+  }, [slug]);
+  if (!city) return <div style={{paddingTop:140,textAlign:"center",color:"#6b7280"}}>Yükleniyor...</div>;
+  return <div style={{paddingTop:72}}>
+    {/* Hero */}
+    <section style={{background:`linear-gradient(135deg,${C.navy},${C.navyL})`,padding:"80px 0"}}>
+      <div className="container" style={{textAlign:"center",color:"#fff"}}>
+        <FadeIn><div style={{fontSize:11,fontWeight:800,letterSpacing:4,textTransform:"uppercase",color:C.orange,marginBottom:16}}>Periyodik Kontrol</div></FadeIn>
+        <FadeIn delay={.1}><h1 style={{fontSize:"clamp(30px,4.5vw,48px)",lineHeight:1.2,marginBottom:16}}>{city.hero_title}</h1></FadeIn>
+        {city.hero_subtitle && <FadeIn delay={.2}><p style={{fontSize:17,color:"rgba(255,255,255,.7)",maxWidth:700,margin:"0 auto 32px",lineHeight:1.7}}>{city.hero_subtitle}</p></FadeIn>}
+        <FadeIn delay={.3}><button className="btn btn-white" onClick={()=>navigate('/teklif-hesapla')}>{city.cta_text || 'Hemen Teklif Alın'} →</button></FadeIn>
+      </div>
+    </section>
+
+    {/* İçerik */}
+    <section className="section"><div className="container city-grid" style={{display:"grid",gridTemplateColumns:"2fr 1fr",gap:40}}>
+      <div>
+        <FadeIn><div style={{fontSize:16,lineHeight:2,color:"#6b7280",whiteSpace:"pre-line"}}>{city.content}</div></FadeIn>
+
+        {/* Hizmetler Listesi */}
+        {city.services_intro && <FadeIn delay={.2}><div style={{marginTop:40}}>
+          <h2 style={{fontSize:24,color:C.navy,marginBottom:20}}>{city.services_intro}</h2>
+          <div style={{display:"grid",gap:10}}>
+            {(services||[]).map((s,i) => (
+              <div key={s.id} style={{display:"flex",alignItems:"center",gap:14,padding:"14px 18px",background:"#fff",border:"1px solid #e5e2dc",transition:"all .2s"}}>
+                <span style={{fontSize:11,fontWeight:900,color:C.orange,letterSpacing:2}}>0{i+1}</span>
+                <div>
+                  <div style={{fontWeight:700,fontSize:14,color:C.navy}}>{s.title}</div>
+                  {s.description && <div style={{fontSize:13,color:"#6b7280",marginTop:2}}>{s.description}</div>}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div></FadeIn>}
+      </div>
+
+      {/* Sidebar */}
+      <div>
+        <FadeIn delay={.15}>
+          <div style={{background:C.navy,padding:28,color:"#fff",marginBottom:16}}>
+            <div style={{fontSize:11,fontWeight:800,letterSpacing:3,color:C.orange,marginBottom:14}}>İLETİŞİM</div>
+            <div style={{fontSize:14,lineHeight:2,color:"rgba(255,255,255,.8)"}}>
+              <div>📞 {contact?.phone}</div>
+              <div>✉️ {contact?.email}</div>
+              <div>📍 {contact?.address}</div>
+            </div>
+            <a href={`https://wa.me/${contact?.whatsapp||WHATSAPP}`} target="_blank" rel="noopener" className="btn" style={{background:"#25D366",color:"#fff",width:"100%",justifyContent:"center",marginTop:16,padding:"12px 20px"}}>WhatsApp ile Yazın</a>
+          </div>
+        </FadeIn>
+        <FadeIn delay={.25}>
+          <div className="card" style={{padding:24}}>
+            <div style={{fontSize:11,fontWeight:800,letterSpacing:3,color:C.orange,marginBottom:14}}>TEKLİF ALIN</div>
+            <p style={{fontSize:14,color:"#6b7280",lineHeight:1.7,marginBottom:16}}>{city.city_name} ve çevresindeki tesisleriniz için ücretsiz teklif alın.</p>
+            <button className="btn btn-primary" style={{width:"100%",justifyContent:"center"}} onClick={()=>navigate('/teklif-hesapla')}>Teklif Hesapla →</button>
+          </div>
+        </FadeIn>
+        <FadeIn delay={.35}>
+          <div className="card" style={{padding:24,marginTop:16}}>
+            <div style={{fontSize:11,fontWeight:800,letterSpacing:3,color:C.orange,marginBottom:14}}>DİĞER BÖLGELER</div>
+            <CityLinks currentSlug={slug} />
+          </div>
+        </FadeIn>
+      </div>
+    </div></section>
+  </div>;
+}
+
+function CityLinks({ currentSlug }) {
+  const { data: cities } = useSupabase('city_pages', { order: 'order_index' });
+  return <div style={{display:"flex",flexDirection:"column",gap:6}}>
+    {(cities||[]).filter(c=>c.slug!==currentSlug).slice(0,10).map(c=>(
+      <Link key={c.id} to={`/periyodik-kontrol/${c.slug}`} style={{fontSize:13,fontWeight:600,color:C.navy,padding:"6px 0",borderBottom:"1px solid #f0ece6",transition:"color .2s"}}>{c.city_name} Periyodik Kontrol →</Link>
+    ))}
+  </div>;
+}
+
 function QuotePage() {
   const[sel,setSel]=useState({});const[oc,setOc]=useState(null);const[fm,setFm]=useState({c:"",p:"",t:"",e:""});
   const tog=id=>setSel(p=>{const n={...p};if(n[id])delete n[id];else n[id]=1;return n});
@@ -298,6 +382,7 @@ export default function App() {
         <Route path="/referanslar" element={<ReferencesPage />} />
         <Route path="/blog" element={<BlogPage />} />
         <Route path="/blog/:slug" element={<BlogPost />} />
+        <Route path="/periyodik-kontrol/:slug" element={<CityPage />} />
         <Route path="/teklif-hesapla" element={<QuotePage />} />
         <Route path="/iletisim" element={<ContactPage />} />
       </Route>
