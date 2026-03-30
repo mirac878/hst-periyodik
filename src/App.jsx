@@ -474,13 +474,20 @@ function CityLinks({ currentSlug }) {
   </div>;
 }
 
+function RegionServiceLinks({ citySlug }) {
+  const { data: servicePages } = useSupabase('city_service_pages', { order: 'order_index' });
+  const pages = (servicePages || []).filter((p) => p.city_slug === citySlug && p.is_active !== false).slice(0, 6);
+  if (!pages.length) return null;
+  return <div style={{display:'flex',flexWrap:'wrap',gap:8,marginTop:16}}>{pages.map((p)=><Link key={p.id} to={`/hizmet-bolgeleri/${p.city_slug}/${p.service_key}`} style={{fontSize:12,fontWeight:700,color:C.navy,background:'#f7f3ed',border:'1px solid #eadfce',padding:'8px 10px',borderRadius:999}}>{p.service_name}</Link>)}</div>;
+}
+
 function RegionsPage() {
   const { data: cities } = useSupabase('city_pages', { order: 'order_index' });
   return <div style={{paddingTop:72}}><section className="section"><div className="container">
     <FadeIn><div className="section-label">Hizmet Bölgeleri</div></FadeIn>
     <FadeIn delay={.1}><h1 className="section-title" style={{marginBottom:14}}>İllere Özel Hizmet Sayfaları</h1></FadeIn>
-    <FadeIn delay={.15}><p style={{fontSize:15,color:"#6b7280",lineHeight:1.8,maxWidth:760,marginBottom:32}}>Periyodik kontrol, patlamadan korunma dokümanı, endüstriyel raf statik analizi ve ortam ölçümleri hizmetlerimizi Türkiye genelinde sunuyoruz. Aşağıdaki şehir sayfalarından bulunduğunuz ile özel içeriklere ulaşabilirsiniz.</p></FadeIn>
-    <div className="city-grid" style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(260px,1fr))",gap:16}}>{(cities||[]).map((c,i)=><FadeIn key={c.id} delay={i*.04}><Link to={`/periyodik-kontrol/${c.slug}`} className="card" style={{display:"block",minHeight:180}}><div style={{fontSize:11,fontWeight:800,letterSpacing:2,color:C.orange,textTransform:"uppercase",marginBottom:12}}>{c.city_name}</div><h3 style={{fontSize:22,color:C.navy,lineHeight:1.35,marginBottom:10}}>{c.hero_title}</h3><p style={{fontSize:14,color:"#6b7280",lineHeight:1.8}}>{c.meta_description||c.hero_subtitle}</p><span style={{fontSize:13,fontWeight:700,color:C.orange,marginTop:12,display:"inline-block"}}>Sayfaya Git →</span></Link></FadeIn>)}</div>
+    <FadeIn delay={.15}><p style={{fontSize:15,color:"#6b7280",lineHeight:1.8,maxWidth:760,marginBottom:32}}>Periyodik kontrol, patlamadan korunma dokümanı, endüstriyel raf statik analizi ve ortam ölçümleri hizmetlerimizi Türkiye genelinde sunuyoruz. Aşağıdaki şehir sayfalarından bulunduğunuz ile özel içeriklere, hizmet başlıklarından ise doğrudan şehir + hizmet detay sayfalarına ulaşabilirsiniz.</p></FadeIn>
+    <div className="city-grid" style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(320px,1fr))",gap:16}}>{(cities||[]).map((c,i)=><FadeIn key={c.id} delay={i*.04}><div className="card" style={{display:"block",minHeight:220}}><div style={{fontSize:11,fontWeight:800,letterSpacing:2,color:C.orange,textTransform:"uppercase",marginBottom:12}}>{c.city_name}</div><h3 style={{fontSize:22,color:C.navy,lineHeight:1.35,marginBottom:10}}>{c.hero_title}</h3><p style={{fontSize:14,color:"#6b7280",lineHeight:1.8}}>{c.meta_description||c.hero_subtitle}</p><RegionServiceLinks citySlug={c.slug} /><div style={{marginTop:18}}><Link to={`/periyodik-kontrol/${c.slug}`} style={{fontSize:13,fontWeight:700,color:C.orange}}>Şehir sayfasına git →</Link></div></div></FadeIn>)}</div>
   </div></section></div>;
 }
 
