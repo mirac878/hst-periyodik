@@ -7,6 +7,107 @@ const C = { navy:"#0F2B4C", navyL:"#163a5e", orange:"#C75B12", orangeL:"#e8782e"
 const PRICING=[{id:"raf",tr:"Endüstriyel Raf",items:[{id:"rk",tr:"Raf Periyodik Kontrolü",price:1000,pu:1},{id:"rs",tr:"Raf Statik Hesaplama",price:2500,pu:1}]},{id:"ortam",tr:"Ortam Ölçümü (İSG)",items:[{id:"go",tr:"Ortam Gürültü Ölçümü",price:25000},{id:"to",tr:"Ortam Toz Ölçümü",price:25000},{id:"gm",tr:"Gürültü Maruziyeti",price:1000,pu:1},{id:"tk",tr:"Termal Konfor",price:1000,pu:1},{id:"tm",tr:"Toz Maruziyeti",price:1000,pu:1},{id:"vc",tr:"VOC Ölçümü",price:7000,pu:1},{id:"ay",tr:"Aydınlatma",price:15000},{id:"ek",tr:"El-Kol Titreşim",price:1000,pu:1},{id:"tv",tr:"Tüm Vücut Titreşim",price:1250,pu:1},{id:"em",tr:"Elektromanyetik Alan",price:5000}]},{id:"cev",tr:"Çevresel Ölçüm",items:[{id:"cg",tr:"Çevresel Gürültü",price:45000},{id:"ct",tr:"Çevresel Titreşim",price:80000},{id:"pm",tr:"PM10 Örneklemesi",price:40000},{id:"yg",tr:"Yanma Gazları",price:40000},{id:"ab",tr:"Asbest Analizi",price:10000,pu:1}]},{id:"bas",tr:"Basınçlı Kaplar",items:[{id:"ko",tr:"Kompresör",price:500,pu:1},{id:"hi",tr:"Hidrofor",price:500,pu:1},{id:"ge",tr:"Genleşme Tankı",price:500,pu:1},{id:"kz",tr:"Kazan",price:1250,pu:1}]},{id:"kal",tr:"Kaldırma Ekipmanları",items:[{id:"fl",tr:"Forklift",price:1100,pu:1},{id:"vi",tr:"Vinç",price:1250,pu:1},{id:"pl",tr:"Kaldırma Platformu",price:1250,pu:1},{id:"tp",tr:"Transpalet",price:500,pu:1},{id:"al",tr:"Araç Kaldırma Lifti",price:700,pu:1},{id:"tf",tr:"Teleskobik Forklift",price:1100,pu:1},{id:"sp",tr:"Sepetli Platform",price:1250,pu:1}]},{id:"mak",tr:"İş Makineleri & Araçlar",items:[{id:"ex",tr:"Ekskavatör",price:1250,pu:1},{id:"dz",tr:"Dozer",price:1250,pu:1},{id:"gr",tr:"Greyder",price:1250,pu:1},{id:"yk",tr:"Yükleyici",price:1250,pu:1},{id:"si",tr:"Silindir",price:1250,pu:1},{id:"dk",tr:"Damperli Kamyon",price:700,pu:1},{id:"km",tr:"Kamyonet",price:500,pu:1},{id:"tn",tr:"Tanker",price:1250,pu:1},{id:"ck",tr:"Çekici",price:1250,pu:1},{id:"tr",tr:"Treyler/Lowbed",price:1250,pu:1},{id:"bk",tr:"Beko Loader",price:1250,pu:1},{id:"mx",tr:"Transmikser",price:1250,pu:1},{id:"bp",tr:"Beton Pompası",price:1250,pu:1},{id:"kk",tr:"Konkasör",price:1250,pu:1}]},{id:"elk",tr:"Elektrik Tesisatı",items:[{id:"it",tr:"İç Tesisat Uygunluk",price:3500},{id:"tl",tr:"Topraklama",price:5000},{id:"ka",tr:"Kaçak Akım Rölesi",price:2500},{id:"jn",tr:"Jeneratör",price:750,pu:1},{id:"pa",tr:"Paratoner",price:1250,pu:1},{id:"kp",tr:"Kompanzasyon",price:2500}]},{id:"yan",tr:"Yangın Sistemleri",items:[{id:"yt",tr:"Yangın Tesisatı",price:5000},{id:"sn",tr:"Portatif Söndürücü",price:150,pu:1},{id:"ag",tr:"Algılama Sistemi",price:8250}]},{id:"dig",tr:"Diğer Ekipmanlar",items:[{id:"ek2",tr:"Endüstriyel Kapı",price:1000,pu:1},{id:"hv",tr:"Havalandırma",price:2500},{id:"ky",tr:"Kaynak Makinası",price:500,pu:1},{id:"pr",tr:"Pres",price:700,pu:1},{id:"tz",tr:"Tezgah/Matkap",price:750,pu:1},{id:"db",tr:"Demir Kesme/Bükme",price:750,pu:1},{id:"bc",tr:"Baca Muayenesi",price:3500}]}];
 const WHATSAPP = "905348814040";
 
+const SITE_URL = "https://hstperiyodik.com";
+const DEFAULT_SEO = {
+  title: "HST Periyodik Mühendislik Hizmetleri",
+  description: "HST Periyodik Mühendislik Hizmetleri; periyodik kontrol, patlamadan korunma dokümanı, endüstriyel raf statik analizi ve ortam ölçümleri alanlarında Kastamonu merkezli olarak Türkiye genelinde hizmet verir.",
+  image: `${SITE_URL}/logo.png`
+};
+
+function ensureAbsoluteUrl(value) {
+  if (!value) return DEFAULT_SEO.image;
+  if (value.startsWith('http://') || value.startsWith('https://')) return value;
+  return `${SITE_URL}${value.startsWith('/') ? value : `/${value}`}`;
+}
+
+function upsertMeta(selector, attrs, content) {
+  let el = document.head.querySelector(selector);
+  if (!el) {
+    el = document.createElement('meta');
+    Object.entries(attrs).forEach(([k, v]) => el.setAttribute(k, v));
+    document.head.appendChild(el);
+  }
+  el.setAttribute('content', content);
+}
+
+function usePageSeo({ title, description, path = '/', image, noindex = false, schema = [] }) {
+  useEffect(() => {
+    const cleanTitle = title || DEFAULT_SEO.title;
+    const cleanDescription = description || DEFAULT_SEO.description;
+    const canonicalUrl = `${SITE_URL}${path === '/' ? '' : path}`;
+    const ogImage = ensureAbsoluteUrl(image);
+
+    document.title = cleanTitle;
+    upsertMeta('meta[name="description"]', { name: 'description' }, cleanDescription);
+    upsertMeta('meta[name="robots"]', { name: 'robots' }, noindex ? 'noindex,nofollow' : 'index,follow,max-image-preview:large');
+    upsertMeta('meta[property="og:title"]', { property: 'og:title' }, cleanTitle);
+    upsertMeta('meta[property="og:description"]', { property: 'og:description' }, cleanDescription);
+    upsertMeta('meta[property="og:type"]', { property: 'og:type' }, 'website');
+    upsertMeta('meta[property="og:url"]', { property: 'og:url' }, canonicalUrl);
+    upsertMeta('meta[property="og:image"]', { property: 'og:image' }, ogImage);
+    upsertMeta('meta[property="og:locale"]', { property: 'og:locale' }, 'tr_TR');
+    upsertMeta('meta[name="twitter:card"]', { name: 'twitter:card' }, 'summary_large_image');
+    upsertMeta('meta[name="twitter:title"]', { name: 'twitter:title' }, cleanTitle);
+    upsertMeta('meta[name="twitter:description"]', { name: 'twitter:description' }, cleanDescription);
+    upsertMeta('meta[name="twitter:image"]', { name: 'twitter:image' }, ogImage);
+
+    let canonical = document.head.querySelector('link[rel="canonical"]');
+    if (!canonical) {
+      canonical = document.createElement('link');
+      canonical.setAttribute('rel', 'canonical');
+      document.head.appendChild(canonical);
+    }
+    canonical.setAttribute('href', canonicalUrl);
+
+    const existing = document.head.querySelector('#seo-schema');
+    if (existing) existing.remove();
+
+    const baseSchemas = [
+      {
+        '@context': 'https://schema.org',
+        '@type': 'Organization',
+        name: 'HST Periyodik Mühendislik Hizmetleri',
+        url: SITE_URL,
+        logo: `${SITE_URL}/favicon.png`,
+        image: `${SITE_URL}/logo.png`,
+        telephone: '+90 534 881 40 40',
+        email: 'miracnecmihasturk@gmail.com',
+        address: {
+          '@type': 'PostalAddress',
+          streetAddress: 'İnönü Mah. Alparslan Türkeş Blv. Ilgaz Sok. Saray Apt',
+          addressLocality: 'Kastamonu',
+          addressCountry: 'TR'
+        },
+        areaServed: { '@type': 'Country', name: 'Türkiye' }
+      },
+      {
+        '@context': 'https://schema.org',
+        '@type': 'WebSite',
+        name: 'HST Periyodik',
+        url: SITE_URL,
+        inLanguage: 'tr-TR'
+      },
+      ...schema.filter(Boolean)
+    ];
+
+    const script = document.createElement('script');
+    script.type = 'application/ld+json';
+    script.id = 'seo-schema';
+    script.text = JSON.stringify(baseSchemas.length === 1 ? baseSchemas[0] : baseSchemas);
+    document.head.appendChild(script);
+
+    return () => {
+      const schemaEl = document.head.querySelector('#seo-schema');
+      if (schemaEl) schemaEl.remove();
+    };
+  }, [title, description, path, image, noindex, JSON.stringify(schema)]);
+}
+
+function SeoPage({ title, description, path, image, noindex = false, schema = [], children }) {
+  usePageSeo({ title, description, path, image, noindex, schema });
+  return children;
+}
+
 function useSupabase(table, options = {}) {
   const [data, setData] = useState(options.single ? null : []);
   const [loading, setLoading] = useState(true);
@@ -240,6 +341,24 @@ function BlogPost() {
   const { slug } = useParams();
   const [post, setPost] = useState(null);
   useEffect(() => { supabase.from('blogs').select('*').eq('slug',slug).eq('published',true).single().then(({data})=>setPost(data)); }, [slug]);
+  usePageSeo({
+    title: post ? `${post.title} | HST Periyodik Blog` : 'Blog Yazısı | HST Periyodik',
+    description: post?.excerpt || DEFAULT_SEO.description,
+    path: `/blog/${slug}`,
+    image: post?.cover_image || DEFAULT_SEO.image,
+    schema: post ? [{
+      '@context': 'https://schema.org',
+      '@type': 'BlogPosting',
+      headline: post.title,
+      description: post.excerpt || DEFAULT_SEO.description,
+      image: ensureAbsoluteUrl(post.cover_image || '/logo.png'),
+      datePublished: post.created_at,
+      dateModified: post.updated_at || post.created_at,
+      author: { '@type': 'Organization', name: post.author || 'HST Periyodik' },
+      publisher: { '@type': 'Organization', name: 'HST Periyodik', logo: { '@type': 'ImageObject', url: `${SITE_URL}/favicon.png` } },
+      mainEntityOfPage: `${SITE_URL}/blog/${slug}`
+    }] : []
+  });
   if (!post) return <div style={{paddingTop:140,textAlign:"center",color:"#6b7280"}}>Yükleniyor...</div>;
   return <div style={{paddingTop:72}}><section className="section"><div className="container" style={{maxWidth:740}}>
     <Link to="/blog" style={{fontSize:13,fontWeight:700,color:C.orange}}>← Tüm Makaleler</Link>
@@ -259,6 +378,29 @@ function CityPage() {
     supabase.from('city_pages').select('*').eq('slug', slug).eq('is_active', true).single()
       .then(({ data }) => setCity(data));
   }, [slug]);
+  usePageSeo({
+    title: city?.meta_title || (city ? `${city.city_name} Periyodik Kontrol Hizmetleri | HST Periyodik` : 'İl Hizmet Sayfası | HST Periyodik'),
+    description: city?.meta_description || city?.hero_subtitle || DEFAULT_SEO.description,
+    path: `/periyodik-kontrol/${slug}`,
+    image: city?.image_url || DEFAULT_SEO.image,
+    schema: city ? [{
+      '@context': 'https://schema.org',
+      '@type': 'Service',
+      name: city.hero_title || `${city.city_name} Periyodik Kontrol Hizmetleri`,
+      description: city.meta_description || city.hero_subtitle || DEFAULT_SEO.description,
+      areaServed: { '@type': 'City', name: city.city_name },
+      provider: { '@type': 'Organization', name: 'HST Periyodik Mühendislik Hizmetleri', url: SITE_URL },
+      serviceType: 'Periyodik kontrol, endüstriyel raf statik analizi, ortam ölçümleri ve patlamadan korunma dokümanı'
+    }, {
+      '@context': 'https://schema.org',
+      '@type': 'BreadcrumbList',
+      itemListElement: [
+        { '@type': 'ListItem', position: 1, name: 'Ana Sayfa', item: SITE_URL },
+        { '@type': 'ListItem', position: 2, name: 'Hizmet Bölgeleri', item: `${SITE_URL}/hizmet-bolgeleri` },
+        { '@type': 'ListItem', position: 3, name: city.city_name, item: `${SITE_URL}/periyodik-kontrol/${slug}` }
+      ]
+    }] : []
+  });
   if (!city) return <div style={{paddingTop:140,textAlign:"center",color:"#6b7280"}}>Yükleniyor...</div>;
   return <div style={{paddingTop:72}}>
     {/* Hero */}
@@ -385,23 +527,29 @@ function ContactPage() {
   </div></section></div>;
 }
 
+function NotFoundPage() {
+  usePageSeo({ title: 'Sayfa Bulunamadı | HST Periyodik', description: 'Aradığınız sayfa bulunamadı.', path: '/404', noindex: true });
+  return <div style={{paddingTop:120}}><section className="section"><div className="container" style={{maxWidth:700,textAlign:'center'}}><h1 className="section-title">Sayfa Bulunamadı</h1><p style={{fontSize:15,color:'#6b7280',lineHeight:1.8,marginBottom:24}}>İstediğiniz sayfa taşınmış, kaldırılmış veya yanlış yazılmış olabilir.</p><Link to="/" className="btn btn-primary">Ana Sayfaya Dön</Link></div></section></div>;
+}
+
 export default function App() {
   return <>
     <GlobalCSS />
     <ScrollToTop />
     <Routes>
-      <Route path="/admin" element={<AdminPanel />} />
+      <Route path="/admin" element={<SeoPage title="Admin Panel | HST Periyodik" description="Yönetim paneli" path="/admin" noindex><AdminPanel /></SeoPage>} />
       <Route element={<Layout />}>
-        <Route path="/" element={<Home />} />
-        <Route path="/hizmetler" element={<ServicesPage />} />
-        <Route path="/hizmet-bolgeleri" element={<RegionsPage />} />
-        <Route path="/hakkimizda" element={<AboutPage />} />
-        <Route path="/referanslar" element={<ReferencesPage />} />
-        <Route path="/blog" element={<BlogPage />} />
+        <Route path="/" element={<SeoPage title="HST Periyodik Mühendislik Hizmetleri" description={DEFAULT_SEO.description} path="/" schema={[{ '@context': 'https://schema.org', '@type': 'LocalBusiness', name: 'HST Periyodik Mühendislik Hizmetleri', url: SITE_URL, image: `${SITE_URL}/logo.png`, logo: `${SITE_URL}/favicon.png`, telephone: '+90 534 881 40 40', email: 'miracnecmihasturk@gmail.com', address: { '@type': 'PostalAddress', addressLocality: 'Kastamonu', addressCountry: 'TR' }, areaServed: 'TR', priceRange: '$$', description: DEFAULT_SEO.description }]}><Home /></SeoPage>} />
+        <Route path="/hizmetler" element={<SeoPage title="Hizmetlerimiz | HST Periyodik" description="Periyodik kontrol, patlamadan korunma dokümanı, endüstriyel raf statik analizi, ortam ölçümleri ve diğer mühendislik hizmetlerimizi inceleyin." path="/hizmetler"><ServicesPage /></SeoPage>} />
+        <Route path="/hizmet-bolgeleri" element={<SeoPage title="Hizmet Bölgeleri | HST Periyodik" description="Türkiye genelinde hizmet verdiğimiz illere özel periyodik kontrol sayfalarını inceleyin." path="/hizmet-bolgeleri"><RegionsPage /></SeoPage>} />
+        <Route path="/hakkimizda" element={<SeoPage title="Hakkımızda | HST Periyodik" description="HST Periyodik Mühendislik Hizmetleri'nin tecrübesi, yaklaşımı ve Türkiye genelindeki hizmet ağı hakkında bilgi alın." path="/hakkimizda"><AboutPage /></SeoPage>} />
+        <Route path="/referanslar" element={<SeoPage title="Referanslarımız | HST Periyodik" description="HST Periyodik'in hizmet verdiği firmaları ve referanslarını inceleyin." path="/referanslar"><ReferencesPage /></SeoPage>} />
+        <Route path="/blog" element={<SeoPage title="Blog | HST Periyodik" description="Periyodik kontrol, raf analizi, patlamadan korunma ve ortam ölçümleri hakkında güncel makalelerimizi okuyun." path="/blog"><BlogPage /></SeoPage>} />
         <Route path="/blog/:slug" element={<BlogPost />} />
         <Route path="/periyodik-kontrol/:slug" element={<CityPage />} />
-        <Route path="/teklif-hesapla" element={<QuotePage />} />
-        <Route path="/iletisim" element={<ContactPage />} />
+        <Route path="/teklif-hesapla" element={<SeoPage title="Teklif Hesapla | HST Periyodik" description="Online teklif sihirbazı ile ihtiyaç duyduğunuz periyodik kontrol ve mühendislik hizmetleri için hızlı fiyat aralığı görün." path="/teklif-hesapla"><QuotePage /></SeoPage>} />
+        <Route path="/iletisim" element={<SeoPage title="İletişim | HST Periyodik" description="HST Periyodik Mühendislik Hizmetleri ile telefon, e-posta veya WhatsApp üzerinden iletişime geçin." path="/iletisim"><ContactPage /></SeoPage>} />
+        <Route path="*" element={<NotFoundPage />} />
       </Route>
     </Routes>
   </>;
