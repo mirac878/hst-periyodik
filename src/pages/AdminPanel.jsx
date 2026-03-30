@@ -20,6 +20,7 @@ const TAB_ORDER = [
   "about_content",
   "contact_info",
   "city_pages",
+  "city_service_pages",
 ];
 
 const TAB_LABELS = {
@@ -32,6 +33,7 @@ const TAB_LABELS = {
   about_content: "Hakkımızda",
   contact_info: "İletişim",
   city_pages: "İl SEO",
+  city_service_pages: "İl + Hizmet SEO",
 };
 
 const EMPTY_FORMS = {
@@ -50,6 +52,22 @@ const EMPTY_FORMS = {
     hero_subtitle: "",
     content: "",
     services_intro: "",
+    cta_text: "Hemen Teklif Alın",
+    image_url: "",
+    order_index: 0,
+    is_active: true,
+  },
+  city_service_pages: {
+    city_name: "",
+    city_slug: "",
+    service_key: "",
+    service_name: "",
+    slug: "",
+    meta_title: "",
+    meta_description: "",
+    hero_title: "",
+    hero_subtitle: "",
+    content: "",
     cta_text: "Hemen Teklif Alın",
     image_url: "",
     order_index: 0,
@@ -262,9 +280,54 @@ function CityEditor({ form, setForm, password }) {
   );
 }
 
+
+function CityServiceEditor({ form, setForm, password }) {
+  return (
+    <>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+        <Field label="İl Adı">
+          <TextInput value={form.city_name} onChange={(e) => {
+            const city_name = e.target.value;
+            setForm((p) => ({ ...p, city_name, city_slug: p.city_slug && p.city_slug !== slugify(p.city_name) ? p.city_slug : slugify(city_name) }));
+          }} />
+        </Field>
+        <Field label="İl Slug">
+          <TextInput value={form.city_slug} onChange={(e) => setForm((p) => ({ ...p, city_slug: slugify(e.target.value) }))} />
+        </Field>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+        <Field label="Hizmet Adı">
+          <TextInput value={form.service_name} onChange={(e) => {
+            const service_name = e.target.value;
+            setForm((p) => ({ ...p, service_name, hero_title: p.hero_title || `${p.city_name || ''} ${service_name}`.trim() }));
+          }} />
+        </Field>
+        <Field label="Hizmet Key">
+          <TextInput value={form.service_key} onChange={(e) => setForm((p) => ({ ...p, service_key: slugify(e.target.value) }))} hint="Örn: raf-statik-analizi" />
+        </Field>
+      </div>
+      <Field label="Slug">
+        <TextInput value={form.slug} onChange={(e) => setForm((p) => ({ ...p, slug: slugify(e.target.value) }))} placeholder="ankara-raf-statik-analizi" />
+      </Field>
+      <Field label="Meta Title"><TextInput value={form.meta_title} onChange={(e) => setForm((p) => ({ ...p, meta_title: e.target.value }))} /></Field>
+      <Field label="Meta Description"><TextArea rows={3} value={form.meta_description} onChange={(e) => setForm((p) => ({ ...p, meta_description: e.target.value }))} /></Field>
+      <Field label="Hero Başlık"><TextInput value={form.hero_title} onChange={(e) => setForm((p) => ({ ...p, hero_title: e.target.value }))} /></Field>
+      <Field label="Hero Alt Başlık"><TextArea rows={3} value={form.hero_subtitle} onChange={(e) => setForm((p) => ({ ...p, hero_subtitle: e.target.value }))} /></Field>
+      <Field label="Ana İçerik"><TextArea rows={14} value={form.content} onChange={(e) => setForm((p) => ({ ...p, content: e.target.value }))} /></Field>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+        <Field label="CTA Buton Metni"><TextInput value={form.cta_text} onChange={(e) => setForm((p) => ({ ...p, cta_text: e.target.value }))} /></Field>
+        <Field label="Sıralama"><TextInput type="number" value={form.order_index ?? 0} onChange={(e) => setForm((p) => ({ ...p, order_index: Number(e.target.value || 0) }))} /></Field>
+      </div>
+      <Field label="Kapak Görseli / Hero Görseli"><UploadField value={form.image_url} onChange={(url) => setForm((p) => ({ ...p, image_url: url }))} password={password} /></Field>
+      <CheckBox checked={!!form.is_active} onChange={(e) => setForm((p) => ({ ...p, is_active: e.target.checked }))} label="Sayfa aktif" />
+    </>
+  );
+}
+
 function SimpleEditor({ tab, form, setForm, password }) {
   if (tab === "blogs") return <BlogEditor form={form} setForm={setForm} password={password} />;
   if (tab === "city_pages") return <CityEditor form={form} setForm={setForm} password={password} />;
+  if (tab === "city_service_pages") return <CityServiceEditor form={form} setForm={setForm} password={password} />;
 
   if (tab === "hero_slides") {
     return (

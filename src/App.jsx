@@ -14,6 +14,17 @@ const DEFAULT_SEO = {
   image: `${SITE_URL}/logo.png`
 };
 
+
+const SERVICE_LABELS = {
+  'raf-periyodik-kontrol': 'Raf Periyodik Kontrolü',
+  'raf-statik-analizi': 'Endüstriyel Raf Statik Analizi',
+  'ortam-olcumleri': 'Ortam Ölçümleri',
+  'pkd-atex': 'Patlamadan Korunma Dokümanı',
+  'ekipman-periyodik-kontrol': 'Ekipman Periyodik Kontrol',
+  'elektrik-yangin-kontrolu': 'Elektrik ve Yangın Kontrolü'
+};
+
+
 function ensureAbsoluteUrl(value) {
   if (!value) return DEFAULT_SEO.image;
   if (value.startsWith('http://') || value.startsWith('https://')) return value;
@@ -419,20 +430,8 @@ function CityPage() {
         <FadeIn><div style={{fontSize:16,lineHeight:2,color:"#6b7280",whiteSpace:"pre-line"}}>{city.content}</div></FadeIn>
 
         {/* Hizmetler Listesi */}
-        {city.services_intro && <FadeIn delay={.2}><div style={{marginTop:40}}>
-          <h2 style={{fontSize:24,color:C.navy,marginBottom:20}}>{city.services_intro}</h2>
-          <div style={{display:"grid",gap:10}}>
-            {(services||[]).map((s,i) => (
-              <div key={s.id} style={{display:"flex",alignItems:"center",gap:14,padding:"14px 18px",background:"#fff",border:"1px solid #e5e2dc",transition:"all .2s"}}>
-                <span style={{fontSize:11,fontWeight:900,color:C.orange,letterSpacing:2}}>0{i+1}</span>
-                <div>
-                  <div style={{fontWeight:700,fontSize:14,color:C.navy}}>{s.title}</div>
-                  {s.description && <div style={{fontSize:13,color:"#6b7280",marginTop:2}}>{s.description}</div>}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div></FadeIn>}
+        <ServiceMiniGrid citySlug={city.slug} cityName={city.city_name} intro={city.services_intro} />
+        {(!city.services_intro && services && services.length > 0) ? <FadeIn delay={.24}><div style={{marginTop:20}}><div style={{display:'grid',gap:10}}>{(services||[]).slice(0,6).map((s,i)=><div key={s.id} style={{display:'flex',alignItems:'center',gap:14,padding:'14px 18px',background:'#fff',border:'1px solid #e5e2dc'}}><span style={{fontSize:11,fontWeight:900,color:C.orange,letterSpacing:2}}>0{i+1}</span><div><div style={{fontWeight:700,fontSize:14,color:C.navy}}>{s.title}</div>{s.description && <div style={{fontSize:13,color:'#6b7280',marginTop:2}}>{s.description}</div>}</div></div>)}</div></div></FadeIn> : null}
       </div>
 
       {/* Sidebar */}
@@ -483,6 +482,111 @@ function RegionsPage() {
     <FadeIn delay={.15}><p style={{fontSize:15,color:"#6b7280",lineHeight:1.8,maxWidth:760,marginBottom:32}}>Periyodik kontrol, patlamadan korunma dokümanı, endüstriyel raf statik analizi ve ortam ölçümleri hizmetlerimizi Türkiye genelinde sunuyoruz. Aşağıdaki şehir sayfalarından bulunduğunuz ile özel içeriklere ulaşabilirsiniz.</p></FadeIn>
     <div className="city-grid" style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(260px,1fr))",gap:16}}>{(cities||[]).map((c,i)=><FadeIn key={c.id} delay={i*.04}><Link to={`/periyodik-kontrol/${c.slug}`} className="card" style={{display:"block",minHeight:180}}><div style={{fontSize:11,fontWeight:800,letterSpacing:2,color:C.orange,textTransform:"uppercase",marginBottom:12}}>{c.city_name}</div><h3 style={{fontSize:22,color:C.navy,lineHeight:1.35,marginBottom:10}}>{c.hero_title}</h3><p style={{fontSize:14,color:"#6b7280",lineHeight:1.8}}>{c.meta_description||c.hero_subtitle}</p><span style={{fontSize:13,fontWeight:700,color:C.orange,marginTop:12,display:"inline-block"}}>Sayfaya Git →</span></Link></FadeIn>)}</div>
   </div></section></div>;
+}
+
+
+function ServiceMiniGrid({ citySlug, cityName, intro }) {
+  const { data: servicePages } = useSupabase('city_service_pages', { order: 'order_index' });
+  const pages = (servicePages || []).filter((p) => p.city_slug === citySlug && p.is_active !== false);
+  if (!pages.length) return null;
+  return <FadeIn delay={.2}><div style={{marginTop:40}}>
+    <h2 style={{fontSize:24,color:C.navy,marginBottom:20}}>{intro || `${cityName} için öne çıkan hizmet sayfalarımız`}</h2>
+    <div style={{display:'grid',gap:10}}>
+      {pages.map((p, i) => (
+        <Link key={p.id} to={`/hizmet-bolgeleri/${p.city_slug}/${p.service_key}`} style={{display:'block',padding:'16px 18px',background:'#fff',border:'1px solid #e5e2dc'}}>
+          <div style={{display:'flex',justifyContent:'space-between',gap:12,alignItems:'center'}}>
+            <div>
+              <div style={{fontSize:11,fontWeight:900,color:C.orange,letterSpacing:2,marginBottom:6}}>{String(i + 1).padStart(2, '0')}</div>
+              <div style={{fontWeight:700,fontSize:15,color:C.navy}}>{p.service_name || SERVICE_LABELS[p.service_key] || p.service_key}</div>
+              <div style={{fontSize:13,color:'#6b7280',marginTop:4,lineHeight:1.7}}>{p.hero_subtitle || p.meta_description}</div>
+            </div>
+            <div style={{fontSize:13,fontWeight:700,color:C.orange,whiteSpace:'nowrap'}}>Detay →</div>
+          </div>
+        </Link>
+      ))}
+    </div>
+  </div></FadeIn>;
+}
+
+function CityServiceSidebarLinks({ citySlug, currentServiceKey }) {
+  const { data: servicePages } = useSupabase('city_service_pages', { order: 'order_index' });
+  const pages = (servicePages || []).filter((p) => p.city_slug === citySlug && p.service_key !== currentServiceKey && p.is_active !== false);
+  return <div style={{display:'flex',flexDirection:'column',gap:6}}>
+    {pages.map((p) => (
+      <Link key={p.id} to={`/hizmet-bolgeleri/${p.city_slug}/${p.service_key}`} style={{fontSize:13,fontWeight:600,color:C.navy,padding:'6px 0',borderBottom:'1px solid #f0ece6'}}>{p.service_name} →</Link>
+    ))}
+  </div>;
+}
+
+function CityServicePage() {
+  const { citySlug, serviceKey } = useParams();
+  const [page, setPage] = useState(null);
+  const { data: contact } = useSupabase('contact_info', { single: true });
+  useEffect(() => {
+    supabase.from('city_service_pages').select('*').eq('city_slug', citySlug).eq('service_key', serviceKey).eq('is_active', true).single()
+      .then(({ data }) => setPage(data || null));
+  }, [citySlug, serviceKey]);
+
+  usePageSeo({
+    title: page?.meta_title || `${SERVICE_LABELS[serviceKey] || 'Hizmet'} | HST Periyodik`,
+    description: page?.meta_description || page?.hero_subtitle || DEFAULT_SEO.description,
+    path: `/hizmet-bolgeleri/${citySlug}/${serviceKey}`,
+    image: page?.image_url || DEFAULT_SEO.image,
+    schema: page ? [{
+      '@context': 'https://schema.org',
+      '@type': 'Service',
+      name: page.hero_title,
+      description: page.meta_description || page.hero_subtitle || DEFAULT_SEO.description,
+      areaServed: { '@type': 'City', name: page.city_name },
+      provider: { '@type': 'Organization', name: 'HST Periyodik Mühendislik Hizmetleri', url: SITE_URL },
+      serviceType: page.service_name
+    }, {
+      '@context': 'https://schema.org',
+      '@type': 'BreadcrumbList',
+      itemListElement: [
+        { '@type': 'ListItem', position: 1, name: 'Ana Sayfa', item: SITE_URL },
+        { '@type': 'ListItem', position: 2, name: 'Hizmet Bölgeleri', item: `${SITE_URL}/hizmet-bolgeleri` },
+        { '@type': 'ListItem', position: 3, name: page.city_name, item: `${SITE_URL}/periyodik-kontrol/${citySlug}` },
+        { '@type': 'ListItem', position: 4, name: page.service_name, item: `${SITE_URL}/hizmet-bolgeleri/${citySlug}/${serviceKey}` }
+      ]
+    }] : []
+  });
+
+  if (!page) return <div style={{paddingTop:140,textAlign:'center',color:'#6b7280'}}>Yükleniyor...</div>;
+  return <div style={{paddingTop:72}}>
+    <section style={{background:page.image_url?`linear-gradient(rgba(15,43,76,.78),rgba(22,58,94,.86)),url(${page.image_url}) center/cover`:`linear-gradient(135deg,${C.navy},${C.navyL})`,padding:'80px 0'}}>
+      <div className="container" style={{textAlign:'center',color:'#fff'}}>
+        <FadeIn><div style={{fontSize:11,fontWeight:800,letterSpacing:4,textTransform:'uppercase',color:C.orange,marginBottom:16}}>{page.city_name} • {page.service_name}</div></FadeIn>
+        <FadeIn delay={.1}><h1 style={{fontSize:'clamp(30px,4.5vw,48px)',lineHeight:1.2,marginBottom:16}}>{page.hero_title}</h1></FadeIn>
+        {page.hero_subtitle && <FadeIn delay={.2}><p style={{fontSize:17,color:'rgba(255,255,255,.74)',maxWidth:760,margin:'0 auto 32px',lineHeight:1.7}}>{page.hero_subtitle}</p></FadeIn>}
+        <FadeIn delay={.3}><Link className="btn btn-white" to="/teklif-hesapla">{page.cta_text || 'Hemen Teklif Alın'} →</Link></FadeIn>
+      </div>
+    </section>
+
+    <section className="section"><div className="container city-grid" style={{display:'grid',gridTemplateColumns:'2fr 1fr',gap:40}}>
+      <div>
+        <FadeIn><div style={{fontSize:16,lineHeight:2,color:'#6b7280',whiteSpace:'pre-line'}}>{page.content}</div></FadeIn>
+      </div>
+      <div>
+        <FadeIn delay={.15}><div style={{background:C.navy,padding:28,color:'#fff',marginBottom:16}}>
+          <div style={{fontSize:11,fontWeight:800,letterSpacing:3,color:C.orange,marginBottom:14}}>ŞEHİR SAYFASI</div>
+          <div style={{fontSize:15,fontWeight:700,marginBottom:6}}>{page.city_name}</div>
+          <Link to={`/periyodik-kontrol/${page.city_slug}`} style={{fontSize:13,color:'rgba(255,255,255,.78)',textDecoration:'underline'}}>Genel şehir sayfasına dön</Link>
+          <div style={{fontSize:11,fontWeight:800,letterSpacing:3,color:C.orange,margin:'20px 0 14px'}}>İLETİŞİM</div>
+          <div style={{fontSize:14,lineHeight:2,color:'rgba(255,255,255,.8)'}}>
+            <div>📞 {contact?.phone}</div>
+            <div>✉️ {contact?.email}</div>
+            <div>📍 {contact?.address}</div>
+          </div>
+          <a href={`https://wa.me/${contact?.whatsapp||WHATSAPP}`} target="_blank" rel="noopener" className="btn" style={{background:'#25D366',color:'#fff',width:'100%',justifyContent:'center',marginTop:16,padding:'12px 20px'}}>WhatsApp ile Yazın</a>
+        </div></FadeIn>
+        <FadeIn delay={.25}><div className="card" style={{padding:24}}>
+          <div style={{fontSize:11,fontWeight:800,letterSpacing:3,color:C.orange,marginBottom:14}}>AYNI ŞEHİRDE DİĞER HİZMETLER</div>
+          <CityServiceSidebarLinks citySlug={page.city_slug} currentServiceKey={page.service_key} />
+        </div></FadeIn>
+      </div>
+    </div></section>
+  </div>;
 }
 
 function QuotePage() {
@@ -542,6 +646,7 @@ export default function App() {
         <Route path="/" element={<SeoPage title="HST Periyodik Mühendislik Hizmetleri" description={DEFAULT_SEO.description} path="/" schema={[{ '@context': 'https://schema.org', '@type': 'LocalBusiness', name: 'HST Periyodik Mühendislik Hizmetleri', url: SITE_URL, image: `${SITE_URL}/logo.png`, logo: `${SITE_URL}/favicon.png`, telephone: '+90 534 881 40 40', email: 'miracnecmihasturk@gmail.com', address: { '@type': 'PostalAddress', addressLocality: 'Kastamonu', addressCountry: 'TR' }, areaServed: 'TR', priceRange: '$$', description: DEFAULT_SEO.description }]}><Home /></SeoPage>} />
         <Route path="/hizmetler" element={<SeoPage title="Hizmetlerimiz | HST Periyodik" description="Periyodik kontrol, patlamadan korunma dokümanı, endüstriyel raf statik analizi, ortam ölçümleri ve diğer mühendislik hizmetlerimizi inceleyin." path="/hizmetler"><ServicesPage /></SeoPage>} />
         <Route path="/hizmet-bolgeleri" element={<SeoPage title="Hizmet Bölgeleri | HST Periyodik" description="Türkiye genelinde hizmet verdiğimiz illere özel periyodik kontrol sayfalarını inceleyin." path="/hizmet-bolgeleri"><RegionsPage /></SeoPage>} />
+        <Route path="/hizmet-bolgeleri/:citySlug/:serviceKey" element={<CityServicePage />} />
         <Route path="/hakkimizda" element={<SeoPage title="Hakkımızda | HST Periyodik" description="HST Periyodik Mühendislik Hizmetleri'nin tecrübesi, yaklaşımı ve Türkiye genelindeki hizmet ağı hakkında bilgi alın." path="/hakkimizda"><AboutPage /></SeoPage>} />
         <Route path="/referanslar" element={<SeoPage title="Referanslarımız | HST Periyodik" description="HST Periyodik'in hizmet verdiği firmaları ve referanslarını inceleyin." path="/referanslar"><ReferencesPage /></SeoPage>} />
         <Route path="/blog" element={<SeoPage title="Blog | HST Periyodik" description="Periyodik kontrol, raf analizi, patlamadan korunma ve ortam ölçümleri hakkında güncel makalelerimizi okuyun." path="/blog"><BlogPage /></SeoPage>} />

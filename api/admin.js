@@ -6,7 +6,7 @@ const supabase = createClient(
 );
 
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
-const ALLOWED_TABLES = ['blogs', 'client_references', 'services', 'contact_info', 'hero_slides', 'faq_items', 'about_content', 'site_stats', 'city_pages'];
+const ALLOWED_TABLES = ['blogs', 'client_references', 'services', 'contact_info', 'hero_slides', 'faq_items', 'about_content', 'site_stats', 'city_pages', 'city_service_pages'];
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -48,6 +48,7 @@ export default async function handler(req, res) {
         if (table === 'blogs') query.order('created_at', { ascending: false });
         else if (table === 'contact_info') query.limit(1);
         else if (table === 'about_content') query.order('key');
+        else if (table === 'city_service_pages') query.order('order_index', { ascending: true }).order('city_name', { ascending: true });
         else query.order('order_index', { ascending: true });
         const { data: rows, error } = await query;
         if (error) throw error;
