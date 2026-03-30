@@ -46,7 +46,7 @@ export default async function handler(req, res) {
     // Sabit sayfalar
     for (const page of staticPages) {
       xml += `  <url>\n`;
-      xml += `    <loc>https://hstperiyodik.com${page.loc}</loc>\n`;
+      xml += `    <loc>https://www.hstperiyodik.com${page.loc}</loc>\n`;
       xml += `    <changefreq>${page.changefreq}</changefreq>\n`;
       xml += `    <priority>${page.priority}</priority>\n`;
       xml += `  </url>\n`;
@@ -56,7 +56,7 @@ export default async function handler(req, res) {
     if (cities) {
       for (const city of cities) {
         xml += `  <url>\n`;
-        xml += `    <loc>https://hstperiyodik.com/periyodik-kontrol/${city.slug}</loc>\n`;
+        xml += `    <loc>https://www.hstperiyodik.com/periyodik-kontrol/${city.slug}</loc>\n`;
         if (city.updated_at) xml += `    <lastmod>${city.updated_at.split('T')[0]}</lastmod>\n`;
         xml += `    <changefreq>monthly</changefreq>\n`;
         xml += `    <priority>0.8</priority>\n`;
@@ -68,7 +68,7 @@ export default async function handler(req, res) {
     if (cityServices) {
       for (const cs of cityServices) {
         xml += `  <url>\n`;
-        xml += `    <loc>https://hstperiyodik.com/hizmet-bolgeleri/${cs.city_slug}/${cs.service_key}</loc>\n`;
+        xml += `    <loc>https://www.hstperiyodik.com/hizmet-bolgeleri/${cs.city_slug}/${cs.service_key}</loc>\n`;
         if (cs.updated_at) xml += `    <lastmod>${cs.updated_at.split('T')[0]}</lastmod>\n`;
         xml += `    <changefreq>monthly</changefreq>\n`;
         xml += `    <priority>0.7</priority>\n`;
@@ -80,7 +80,7 @@ export default async function handler(req, res) {
     if (blogs) {
       for (const blog of blogs) {
         xml += `  <url>\n`;
-        xml += `    <loc>https://hstperiyodik.com/blog/${blog.slug}</loc>\n`;
+        xml += `    <loc>https://www.hstperiyodik.com/blog/${blog.slug}</loc>\n`;
         if (blog.updated_at) xml += `    <lastmod>${blog.updated_at.split('T')[0]}</lastmod>\n`;
         xml += `    <changefreq>monthly</changefreq>\n`;
         xml += `    <priority>0.6</priority>\n`;
